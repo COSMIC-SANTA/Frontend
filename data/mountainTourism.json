@@ -1,0 +1,72 @@
+{
+  "mountain": {
+    "name": "지리산",
+    "description": "선택한 산 중심으로 주변 관광지, 숙박, 맛집, 카페 등을 추천",
+    "coordinates": {
+      "latitude": 35.3384,
+      "longitude": 127.7314
+    }
+  },
+  "touristSpots": [
+    {
+      "id": 1,
+      "category": "tourist_spot",
+      "name": "불일폭포",
+      "description": "지리산 대표 폭포 중 하나",
+      "image": "https://via.placeholder.com/300x200/4CAF50/white?text=불일폭포",
+      "distance": "3.2km",
+      "rating": 4.5,
+      "tags": ["자연", "폭포", "트레킹"]
+    },
+    {
+      "id": 2,
+      "category": "restaurant",
+      "name": "산채비빔밥 전문점",
+      "description": "지리산 산채로 만든 건강한 비빔밥",
+      "image": "https://via.placeholder.com/300x200/FF9800/white?text=산채비빔밥",
+      "distance": "1.8km",
+      "rating": 4.7,
+      "tags": ["한식", "산채", "건강식"]
+    },
+    {
+      "id": 3,
+      "category": "cafe",
+      "name": "산속마을 카페",
+      "description": "지리산 뷰를 감상할 수 있는 힐링 카페",
+      "image": "https://via.placeholder.com/300x200/2196F3/white?text=산속카페",
+      "distance": "2.1km",
+      "rating": 4.3,
+      "tags": ["카페", "뷰", "힐링"]
+    },
+    {
+      "id": 4,
+      "category": "hotel",
+      "name": "지리산전통마을펜션",
+      "description": "한옥 스타일의 전통 펜션",
+      "image": "https://via.placeholder.com/300x200/9C27B0/white?text=전통펜션",
+      "distance": "4.5km",
+      "rating": 4.4,
+      "tags": ["숙박", "한옥", "전통"]
+    },
+    {
+      "id": 5,
+      "category": "tourist_spot",
+      "name": "천은사",
+      "description": "지리산 대표 사찰",
+      "image": "https://via.placeholder.com/300x200/795548/white?text=천은사",
+      "distance": "5.1km",
+      "rating": 4.6,
+      "tags": ["사찰", "문화", "역사"]
+    },
+    {
+      "id": 6,
+      "category": "restaurant",
+      "name": "지리산 흑돼지 구이",
+      "description": "지역 특산 흑돼지 전문점",
+      "image": "https://via.placeholder.com/300x200/E91E63/white?text=흑돼지구이",
+      "distance": "2.7km",
+      "rating": 4.8,
+      "tags": ["고기", "특산품", "맛집"]
+    }
+  ]
+}

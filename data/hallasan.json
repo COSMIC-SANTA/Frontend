@@ -1,0 +1,62 @@
+{
+  "mountain": {
+    "name": "한라산",
+    "description": "제주도의 최고봉으로 백록담과 아름다운 자연경관으로 유명",
+    "coordinates": {
+      "latitude": 33.3616,
+      "longitude": 126.5292
+    }
+  },
+  "touristSpots": [
+    {
+      "id": 1,
+      "category": "tourist_spot",
+      "name": "백록담",
+      "description": "한라산 정상의 화산호수",
+      "image": "https://via.placeholder.com/300x200/4CAF50/white?text=백록담",
+      "distance": "5.2km",
+      "rating": 4.9,
+      "tags": ["정상", "화산호", "절경"]
+    },
+    {
+      "id": 2,
+      "category": "restaurant",
+      "name": "제주 흑돼지 맛집",
+      "description": "제주 특산 흑돼지 전문점",
+      "image": "https://via.placeholder.com/300x200/FF9800/white?text=흑돼지",
+      "distance": "3.8km",
+      "rating": 4.8,
+      "tags": ["흑돼지", "제주특산", "고기"]
+    },
+    {
+      "id": 3,
+      "category": "cafe",
+      "name": "한라산 카페",
+      "description": "한라산을 바라보는 제주 카페",
+      "image": "https://via.placeholder.com/300x200/2196F3/white?text=한라산카페",
+      "distance": "2.5km",
+      "rating": 4.3,
+      "tags": ["카페", "제주", "한라산뷰"]
+    },
+    {
+      "id": 4,
+      "category": "hotel",
+      "name": "제주 펜션",
+      "description": "한라산 인근 전통 제주 펜션",
+      "image": "https://via.placeholder.com/300x200/9C27B0/white?text=제주펜션",
+      "distance": "4.3km",
+      "rating": 4.4,
+      "tags": ["펜션", "제주", "전통"]
+    },
+    {
+      "id": 5,
+      "category": "tourist_spot",
+      "name": "성판악 코스",
+      "description": "한라산 등반 대표 코스",
+      "image": "https://via.placeholder.com/300x200/8BC34A/white?text=성판악",
+      "distance": "1.2km",
+      "rating": 4.6,
+      "tags": ["등반", "코스", "트레킹"]
+    }
+  ]
+}
