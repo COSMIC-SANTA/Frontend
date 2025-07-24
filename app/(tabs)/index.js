@@ -11,7 +11,7 @@ export default function HomeScreen() {
   const themeColors = Colors[colorScheme ?? "light"];
 
   const navigateToLogin = () => {
-    router.push("/login");
+    router.push("/splash");
   };
 
   return (
