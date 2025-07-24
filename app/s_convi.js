@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, TextInput, FlatList, StyleSheet, ScrollView} from 'react-native';
+import { View, Text, TouchableOpacity, Modal, TextInput, FlatList, StyleSheet, ScrollView, Image, Dimensions,} from 'react-native';
 import { useRouter } from 'expo-router';
 import BottomNavBar from './s_navigationbar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Line from "../assets/images/Line_1.svg";
 
 const MOUNTAIN_LIST = ['Jirisan', 'Seoraksan', 'Hallasan', 'Bukhansan', 'Taebaeksan'];
+const { width } = Dimensions.get("window");
 
 export default function MainScreen() {
   const [selectedMountain, setSelectedMountain] = useState('Jirisan');
@@ -77,7 +79,7 @@ const handleNavigation = (screen) => {
   return (
     <SafeAreaView style ={styles.backcontainer}>
     <View style={styles.contentContainer}>
-     <ScrollView contentContainerStyle={styles.topcontainer}>
+     <ScrollView contentContainerStyle={[styles.topcontainer, { paddingBottom:0 }]}>
 
       {/* 헤더 영역: 산 이름 + 돋보기 */}
       <View style={styles.header}>
@@ -153,9 +155,26 @@ const handleNavigation = (screen) => {
         </ScrollView>
       </View>
     );
-  })}</ScrollView></View> {/* 편의시설 리스트 영역 끝*/}
+  })}
+ 
+  </ScrollView>
+   {/* 리스트 하단에 겹쳐진 일러스트 */}
+   <Image
+    source={require('../assets/images/Tutto Ricco Pink Sitting On Chair.png')}
+    style={styles.footerDesign}
+    resizeMode="contain"/>
+
+<View style={{ position: 'absolute', bottom: -100, left: -200, zIndex: -2, }}> 
+            <Line width={width * 1.5} height={width * 1.1} />
+          </View>
+
+  </View> {/* 편의시설 리스트 영역 끝*/}
+
   
+
     </ScrollView>  {/* 상단 영역의 가장 큰 스크롤 화면 끝*/}
+
+    
 
       {/* 하단 영역: 네비게이션 바 */}
       <View style ={styles.bottomContainer}>
@@ -252,6 +271,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#7857e5',
     paddingTop:10,
     paddingHorizontal: 20,
+    position: 'relative',
+    marginTop: 30,
+    marginBottom:20,
+    overflow: 'hidden', //svg 자체가 가지고 있는 불필요한 공백 제거해 줌.
 
   },
   outerScroll : {
@@ -293,5 +316,12 @@ const styles = StyleSheet.create({
   },
   itemText: {
     fontSize: 20,
+  },
+  footerDesign: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    height: "80%",
+    zIndex: -1,
   },
 });
