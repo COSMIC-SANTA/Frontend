@@ -17,7 +17,7 @@ export default function BottomNavBar({ onNavigate }) {
           <Text style={styles.label}>weather</Text>
         </View>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => onNavigate('main')}>
+      <TouchableOpacity onPress={() => onNavigate('s_convi')}>
         <View style={styles.tabItem}>
           <Ionicons name="chatbubbles" size={24} color="black" />
           <Text style={styles.label}>community</Text>
