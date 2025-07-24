@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, TextInput, FlatList, StyleSheet, ScrollView} from 'react-native';
+import { useRouter } from 'expo-router';
+import BottomNavBar from './s_navigationbar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const MOUNTAIN_LIST = ['Jirisan', 'Seoraksan', 'Hallasan', 'Bukhansan', 'Taebaeksan'];
 
@@ -11,6 +14,11 @@ export default function MainScreen() {
   const filteredList = MOUNTAIN_LIST.filter(name =>
     name.toLowerCase().includes(search.toLowerCase())
   );
+
+  const router = useRouter();
+const handleNavigation = (screen) => {
+  router.push(`/${screen}`);
+};
 
   const facilityData = {
     Jirisan: {
@@ -67,8 +75,10 @@ export default function MainScreen() {
   
 
   return (
-    
-    <View style={styles.container}>
+    <SafeAreaView style ={styles.backcontainer}>
+    <View style={styles.contentContainer}>
+     <ScrollView contentContainerStyle={styles.topcontainer}>
+
       {/* 헤더 영역: 산 이름 + 돋보기 */}
       <View style={styles.header}>
         <Text style={styles.mountainText}>{selectedMountain}</Text>
@@ -143,22 +153,41 @@ export default function MainScreen() {
         </ScrollView>
       </View>
     );
-  })}
-
-        </ScrollView>
+  })}</ScrollView></View> {/* 편의시설 리스트 영역 끝*/}
   
-      </View>
+    </ScrollView>  {/* 상단 영역의 가장 큰 스크롤 화면 끝*/}
+
+      {/* 하단 영역: 네비게이션 바 */}
+      <View style ={styles.bottomContainer}>
+    <BottomNavBar onNavigate={handleNavigation} />
     </View>
+
+    </View> {/* 두번째 밑바닥 큰 컨테이너 */}
+    </SafeAreaView> /* 가장 밑바닥 큰 컨테이너 끝*/
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  backcontainer:{
+    flex:1,
+  },
+  contentContainer: {
     flex: 1,
+  },
+  topcontainer: {
+    flexGrow: 1,
     paddingTop: 20,
     paddingHorizontal: 20,
     paddingBottom:20,
     backgroundColor: "#325A2A",
+  },
+  bottomContainer:{
+    height: 70, 
+    backgroundColor: '#FFF8E1',
+    borderTopWidth: 1,
+    borderColor: '#ddd',
+    marginBottom: 10,
+
   },
   header: {
     flexDirection: 'row',
@@ -233,7 +262,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 20,
     padding: 15,
-    height: 200, // 카드 자체 높이 고정
+    height: 200, 
   },
   cardHeader: {
     flexDirection: 'row',
