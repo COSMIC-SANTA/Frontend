@@ -68,7 +68,7 @@ const MOUNTAINS = [
   {
     id: "10",
     name: "hallasan",
-    category: "low\nmountain",
+    category: "popular",
     mountainImage: require("../assets/images/seolacksan.png"),
   },
 ];
