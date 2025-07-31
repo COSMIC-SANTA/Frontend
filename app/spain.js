@@ -1,66 +1,158 @@
-import { ScrollView, View, StyleSheet, Text, Image, TouchableOpacity, Dimensions, FlatList } from "react-native";
+import {
+  ScrollView,
+  View,
+  StyleSheet,
+  Text,
+  Image,
+  TouchableOpacity,
+  Dimensions,
+  FlatList,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Line from "../assets/images/Line_1.svg";
-import {useState } from "react";
-import WeatherBox from "./s_weather"; 
-import { useRouter } from 'expo-router';
-import BottomNavBar from './s_navigationbar';
-
+import { useState } from "react";
+import WeatherBox from "./s_weather";
+import { useRouter } from "expo-router";
+import BottomNavBar from "./s_navigationbar";
 
 const { width } = Dimensions.get("window");
-const CATEGORIES = ["high\nmountain", "low\nmountain", "flower\nviewing", "activity\n(leisure)"];
+const CATEGORIES = [
+  "high\nmountain",
+  "low\nmountain",
+  "flower\nviewing",
+  "activity\n(leisure)",
+];
 const MOUNTAINS = [
-    { id: "1", name: "seolaksan", category: "high\nmountain", mountainImage: require("../assets/images/jirisan.png") },
-    { id: "2", name: "jirisan", category: "high\nmountain", mountainImage: require("../assets/images/seolacksan.png") },
-    { id: "3", name: "jirisan", category: "high\nmountain", mountainImage: require("../assets/images/namelessmountain.png") },
-    { id: "4", name: "jirisan", category: "high\nmountain", mountainImage: require("../assets/images/jirisan.png") },
-    { id: "5", name: "jirisan", category: "high\nmountain", mountainImage: require("../assets/images/seolacksan.png") },
-    { id: "6", name: "jirisan", category: "low\nmountain", mountainImage: require("../assets/images/namelessmountain.png") },
-    { id: "7", name: "jirisan", category: "low\nmountain", mountainImage: require("../assets/images/jirisan.png") },
-    { id: "10", name: "hallasan", category: "low\nmountain", mountainImage: require("../assets/images/seolacksan.png") },
-  ];
+  {
+    id: "1",
+    name: "seolaksan",
+    category: "high\nmountain",
+    mountainImage: require("../assets/images/jirisan.png"),
+  },
+  {
+    id: "2",
+    name: "jirisan",
+    category: "high\nmountain",
+    mountainImage: require("../assets/images/seolacksan.png"),
+  },
+  {
+    id: "3",
+    name: "jirisan",
+    category: "high\nmountain",
+    mountainImage: require("../assets/images/namelessmountain.png"),
+  },
+  {
+    id: "4",
+    name: "jirisan",
+    category: "high\nmountain",
+    mountainImage: require("../assets/images/jirisan.png"),
+  },
+  {
+    id: "5",
+    name: "jirisan",
+    category: "high\nmountain",
+    mountainImage: require("../assets/images/seolacksan.png"),
+  },
+  {
+    id: "6",
+    name: "jirisan",
+    category: "low\nmountain",
+    mountainImage: require("../assets/images/namelessmountain.png"),
+  },
+  {
+    id: "7",
+    name: "jirisan",
+    category: "low\nmountain",
+    mountainImage: require("../assets/images/jirisan.png"),
+  },
+  {
+    id: "10",
+    name: "hallasan",
+    category: "low\nmountain",
+    mountainImage: require("../assets/images/seolacksan.png"),
+  },
+];
 
-  const MEDALS = [
-    { id: "1", title: "special prize", medal: require("../assets/images/greenmedal.png") },
-    { id: "2", title: "7week", medal: require("../assets/images/yellowmedal.png") },
-    { id: "3", title: "1month", medal: require("../assets/images/pinkmedal.png") },
-    { id: "4", title: "explore", medal: require("../assets/images/redmedal.png") },
-  ];
-
+const MEDALS = [
+  {
+    id: "1",
+    title: "special prize",
+    medal: require("../assets/images/greenmedal.png"),
+  },
+  {
+    id: "2",
+    title: "7week",
+    medal: require("../assets/images/yellowmedal.png"),
+  },
+  {
+    id: "3",
+    title: "1month",
+    medal: require("../assets/images/pinkmedal.png"),
+  },
+  {
+    id: "4",
+    title: "explore",
+    medal: require("../assets/images/redmedal.png"),
+  },
+];
 
 export default function MainScreen() {
-    const [selectedCategory, setSelectedCategory] = useState("high\nmountain");
-    const filteredMountains = MOUNTAINS.filter((m) => m.category === selectedCategory);
-    const router = useRouter();
-    const handleNavigation = (screen) => {router.push(`/${screen}`);};
-    
+  const [selectedCategory, setSelectedCategory] = useState("high\nmountain");
+  const filteredMountains = MOUNTAINS.filter(
+    (m) => m.category === selectedCategory
+  );
+  const router = useRouter();
+  const handleNavigation = (screen) => {
+    router.push(`/${screen}`);
+  };
+
   return (
     <View style={styles.wrapper}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+      >
         {/* 초록색 헤더 부분 시작 */}
         <View style={styles.headerContainer}>
-            {/* 왼쪽 곡선 부분 */}
-          <View style={{ position: 'absolute', bottom: 10, left: -400, zIndex: -1 }}> 
+          {/* 왼쪽 곡선 부분 */}
+          <View
+            style={{ position: "absolute", bottom: 10, left: -400, zIndex: -1 }}
+          >
             <Line width={width * 1.2} height={width * 0.5} />
           </View>
-          <View style={{ position: 'absolute', bottom: 45, left: -400.5, zIndex: -1 }}>
+          <View
+            style={{
+              position: "absolute",
+              bottom: 45,
+              left: -400.5,
+              zIndex: -1,
+            }}
+          >
             <Line width={width * 1.2} height={width * 0.5} />
           </View>
 
           {/* 오른쪽 곡선 부분 */}
-          <View style={{ position: 'absolute', bottom: -150, right: 0, zIndex: -1 }}>
-            <Line width={width * 1.2} height={width * 0.5}
-             style={{ transform: [{ translateX: width * 0.4 }] }} 
+          <View
+            style={{ position: "absolute", bottom: -150, right: 0, zIndex: -1 }}
+          >
+            <Line
+              width={width * 1.2}
+              height={width * 0.5}
+              style={{ transform: [{ translateX: width * 0.4 }] }}
             />
-         </View>
+          </View>
 
-        <View style={{ position: 'absolute', bottom: -150, right: 0, zIndex: -1 }}>
-        <Line width={width * 1.21} height={width * 0.5}
-        style={{ transform: [{ translateX: width * 0.35 }] }} 
-        />
-        </View>
+          <View
+            style={{ position: "absolute", bottom: -150, right: 0, zIndex: -1 }}
+          >
+            <Line
+              width={width * 1.21}
+              height={width * 0.5}
+              style={{ transform: [{ translateX: width * 0.35 }] }}
+            />
+          </View>
 
-        {/* 헤더 텍스트 부분 */}
+          {/* 헤더 텍스트 부분 */}
           <View style={styles.textContainer}>
             <Text style={styles.line1}>Go</Text>
             <Text style={styles.line2}>to</Text>
@@ -70,104 +162,113 @@ export default function MainScreen() {
 
           {/* 톱니바퀴 아이콘 부분 */}
           <View style={styles.rightContainer}>
-            <TouchableOpacity style={styles.settingsButton}>
+            <TouchableOpacity
+              style={styles.settingsButton}
+              onPress={() => handleNavigation("setting")}
+            >
               <Ionicons name="settings-outline" size={30} color="black" />
             </TouchableOpacity>
           </View>
-
-        </View> {/* 초록 헤더 영역 끝 */}
-
+        </View>{" "}
+        {/* 초록 헤더 영역 끝 */}
         {/* 왼쪽 위 사람 일러스트 */}
-      <Image
-        source={require("../assets/images/mainperson.png")}
-        style={styles.personImage2}
-        resizeMode="contain"
-      />
-
+        <Image
+          source={require("../assets/images/mainperson.png")}
+          style={styles.personImage2}
+          resizeMode="contain"
+        />
         {/* 바디 영역 시작*/}
         <View style={styles.bodyContainer}>
-
-        <View style={styles.wrapper}>
-       {/* 사용자 인삿말 */}
-      <Text style={styles.greeting}>
-        Hi, Daniel!
-      </Text>
-      <Text style ={styles.text2}>
-        what is the main purpose of hiking?
-      </Text>
-      </View>
-
-      
-
-      <View style={styles.section}>
-      {/* 카테고리 선택 */}
-      <View style={styles.categoryRow}>
-        {CATEGORIES.map((cat) => (
-           <TouchableOpacity key={cat} onPress={() => setSelectedCategory(cat)}>
-           <View style={styles.categoryWrapper}>
-             {selectedCategory === cat && <View style={styles.dot} />}
-             <Text style={[
-               styles.categoryText,
-               selectedCategory === cat && styles.selectedCategory
-             ]}>
-               {cat}
-             </Text>
-           </View>
-         </TouchableOpacity>
-        ))}
-      </View>
-
-    {/* 산 배너 리스트 */}
-    <FlatList
-    horizontal
-    data={filteredMountains}
-    keyExtractor={(item) => item.id}
-    showsHorizontalScrollIndicator={false}
-    contentContainerStyle={{ 
-    paddingHorizontal: 10,
-    minWidth: width,               
-    justifyContent: "center",      
-    alignItems: "center", 
- }}
-  renderItem={({ item }) => (
-    <View style={styles.cardWrapper}>
-      <TouchableOpacity style={styles.card} onPress={() => console.log("Pressed", item.name)}>
-        <Image source={item.mountainImage} style={styles.mountainImage} />
-      </TouchableOpacity>
-      <Text style={styles.cardText}>{item.name}</Text>
-    </View>
-  )}
-/> </View>
-
-    {/* 임시 날씨 위젯 */}
-    <WeatherBox />
-
-    <View style={styles.textContainer2}>
-            <Text style={styles.line5}>Medal</Text>
-            <Text style={styles.line6}>Achieve your goals and collect your medals!</Text>
+          <View style={styles.wrapper}>
+            {/* 사용자 인삿말 */}
+            <Text style={styles.greeting}>Hi, Daniel!</Text>
+            <Text style={styles.text2}>
+              what is the main purpose of hiking?
+            </Text>
           </View>
 
-      {/* 메달 리스트 */}
-      <FlatList
-        horizontal
-        data={MEDALS}
-        keyExtractor={(item) => item.id}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.medalList}
-        renderItem={({ item }) => (
-          <View style={styles.medalItem}>
-            <View style={styles.medalcircle}>
-              <Image source={item.medal} style={styles.medal} />
+          <View style={styles.section}>
+            {/* 카테고리 선택 */}
+            <View style={styles.categoryRow}>
+              {CATEGORIES.map((cat) => (
+                <TouchableOpacity
+                  key={cat}
+                  onPress={() => setSelectedCategory(cat)}
+                >
+                  <View style={styles.categoryWrapper}>
+                    {selectedCategory === cat && <View style={styles.dot} />}
+                    <Text
+                      style={[
+                        styles.categoryText,
+                        selectedCategory === cat && styles.selectedCategory,
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
             </View>
-            <Text style={styles.medalTitle}>{item.title}</Text>
+            {/* 산 배너 리스트 */}
+            <FlatList
+              horizontal
+              data={filteredMountains}
+              keyExtractor={(item) => item.id}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingHorizontal: 10,
+                minWidth: width,
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+              renderItem={({ item }) => (
+                <View style={styles.cardWrapper}>
+                  <TouchableOpacity
+                    style={styles.card}
+                    onPress={() => console.log("Pressed", item.name)}
+                  >
+                    <Image
+                      source={item.mountainImage}
+                      style={styles.mountainImage}
+                    />
+                  </TouchableOpacity>
+                  <Text style={styles.cardText}>{item.name}</Text>
+                </View>
+              )}
+            />{" "}
           </View>
-        )} />
 
-        </View> {/* 바디 영역 끝 */}
+          {/* 임시 날씨 위젯 */}
+          <WeatherBox />
+
+          <View style={styles.textContainer2}>
+            <Text style={styles.line5}>Medal</Text>
+            <Text style={styles.line6}>
+              Achieve your goals and collect your medals!
+            </Text>
+          </View>
+
+          {/* 메달 리스트 */}
+          <FlatList
+            horizontal
+            data={MEDALS}
+            keyExtractor={(item) => item.id}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.medalList}
+            renderItem={({ item }) => (
+              <View style={styles.medalItem}>
+                <View style={styles.medalcircle}>
+                  <Image source={item.medal} style={styles.medal} />
+                </View>
+                <Text style={styles.medalTitle}>{item.title}</Text>
+              </View>
+            )}
+          />
+        </View>{" "}
+        {/* 바디 영역 끝 */}
       </ScrollView>
 
       <BottomNavBar onNavigate={handleNavigation} />
-
     </View> /*메인 페이지 전체 body*/
   );
 }
@@ -181,7 +282,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FBF1CF",
   },
   content: {
-
     //paddingBottom: 100, //맨 아래 부분에 padding
   },
   headerContainer: {
@@ -258,31 +358,31 @@ const styles = StyleSheet.create({
     height: 100,
     marginTop: 10,
   },
-  greeting: { 
-    fontSize: 40, 
+  greeting: {
+    fontSize: 40,
     fontFamily: "Snell Roundhand",
-    fontWeight: "bold", 
-    color: "#000", 
+    fontWeight: "bold",
+    color: "#000",
     marginTop: 35,
     marginLeft: 30,
-},
-text2: {
-    fontSize: 30, 
+  },
+  text2: {
+    fontSize: 30,
     fontFamily: "Snell Roundhand",
-    fontWeight: "bold", 
-    color: "#000", 
+    fontWeight: "bold",
+    color: "#000",
     marginTop: 3,
     marginLeft: 30,
     opacity: 0.5,
-},
-categoryRow: {
-    flexDirection: "row",   
-    justifyContent: "space-around", 
+  },
+  categoryRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
     alignItems: "center",
     marginVertical: 10,
     paddingHorizontal: 16,
     marginTop: 50,
-    fontSize: 30, 
+    fontSize: 30,
     fontFamily: "Snell Roundhand",
     fontWeight: "bold",
   },
@@ -293,32 +393,31 @@ categoryRow: {
     fontSize: 18,
     fontFamily: "Snell Roundhand",
     fontWeight: "bold",
-    textAlign: "center",  
+    textAlign: "center",
     marginHorizontal: 10,
     marginBottom: 5,
-    marginTop:10,
-    lineHeight: 22, 
+    marginTop: 10,
+    lineHeight: 22,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: "#5C7145",
-    marginTop:50, 
+    marginTop: 50,
   },
   selectedCategory: {
-    color: "#5C7145", 
+    color: "#5C7145",
     fontWeight: "bold",
   },
   mountainImage: {
-    width: "100%",        
-    height: 280,           
+    width: "100%",
+    height: 280,
     resizeMode: "cover",
-    borderTopLeftRadius: 20, 
+    borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-
   },
   cardWrapper: {
     alignItems: "center",
@@ -347,9 +446,8 @@ categoryRow: {
     textTransform: "lowercase",
   },
   textContainer2: {
-    flexDirection: "row",   
-    justifyContent: "space-start", 
-    
+    flexDirection: "row",
+    justifyContent: "space-start",
   },
   line5: {
     marginLeft: 50,
@@ -357,7 +455,6 @@ categoryRow: {
     fontSize: 32,
     fontFamily: "Snell Roundhand",
     fontWeight: "bold",
-
   },
   line6: {
     marginLeft: 30,
@@ -402,11 +499,6 @@ categoryRow: {
     fontFamily: "Snell Roundhand",
     fontWeight: "bold",
     fontSize: 20,
-    marginTop:2,
- 
+    marginTop: 2,
   },
-  
-  
-  
-  
 });
