@@ -8,7 +8,7 @@ import BottomNavBar from './s_navigationbar';
 
 
 const { width } = Dimensions.get("window");
-const CATEGORIES = ["high\nmountain", "low\nmountain", "flower\nviewing", "activity\n(leisure)"];
+const CATEGORIES = ["popular", "high\nmountain", "low\nmountain", "activity\n(leisure)"];
 const MOUNTAINS = [
     { id: "1", name: "seolaksan", category: "high\nmountain", mountainImage: require("../assets/images/jirisan.png") },
     { id: "2", name: "jirisan", category: "high\nmountain", mountainImage: require("../assets/images/seolacksan.png") },
@@ -17,7 +17,7 @@ const MOUNTAINS = [
     { id: "5", name: "jirisan", category: "high\nmountain", mountainImage: require("../assets/images/seolacksan.png") },
     { id: "6", name: "jirisan", category: "low\nmountain", mountainImage: require("../assets/images/namelessmountain.png") },
     { id: "7", name: "jirisan", category: "low\nmountain", mountainImage: require("../assets/images/jirisan.png") },
-    { id: "10", name: "hallasan", category: "low\nmountain", mountainImage: require("../assets/images/seolacksan.png") },
+    { id: "10", name: "hallasan", category: "popular", mountainImage: require("../assets/images/seolacksan.png") },
   ];
 
   const MEDALS = [
