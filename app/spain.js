@@ -1,19 +1,19 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useState } from "react";
 import {
-  ScrollView,
-  View,
-  StyleSheet,
-  Text,
-  Image,
-  TouchableOpacity,
   Dimensions,
   FlatList,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import Line from "../assets/images/Line_1.svg";
-import { useState } from "react";
-import WeatherBox from "./s_weather";
-import { useRouter } from "expo-router";
 import BottomNavBar from "./s_navigationbar";
+import WeatherBox from "./s_weather";
 
 const { width } = Dimensions.get("window");
 const CATEGORIES = [
@@ -264,7 +264,7 @@ export default function MainScreen() {
               </View>
             )}
           />
-        </View>{" "}
+        </View>
         {/* 바디 영역 끝 */}
       </ScrollView>
 
