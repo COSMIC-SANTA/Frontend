@@ -1,13 +1,13 @@
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import Line from "../assets/images/Line_1.svg";
 
 const { width, height } = Dimensions.get("window");
 
-// 다양한 화면 크기 대응을 위한 기준값들
-const BASE_WIDTH = 375; // 표준 너비
-const BASE_HEIGHT = 812; // 표준 높이
+// 아이폰 14 Pro 기준 화면 비율 (393 x 852)
+const DESIGN_WIDTH = 393;
+const DESIGN_HEIGHT = 852;
 
 // 반응형 크기 계산 함수
 const wp = (percentage) => {
@@ -18,42 +18,12 @@ const hp = (percentage) => {
   return (height * percentage) / 100;
 };
 
-// 폰트 크기 조정 함수 - 다양한 화면에서 읽기 쉽도록
+// 폰트 크기 조정 함수
 const normalize = (size) => {
-  const widthScale = width / BASE_WIDTH;
-  const heightScale = height / BASE_HEIGHT;
-  const scale = Math.min(widthScale, heightScale);
-  return Math.max(12, Math.ceil(size * scale));
+  const scale = Math.min(width / DESIGN_WIDTH, height / DESIGN_HEIGHT);
+  return Math.ceil(size * scale);
 };
 
-
-// 곡선 배경 라인 컴포넌트
-const CurvedLine = ({ style }) => (
-  <Svg
-    style={style}
-    viewBox="0 0 400 600"
-    preserveAspectRatio="xMidYMid slice"
-  >
-    <Path
-      d="M50,100 Q200,50 350,100 Q200,150 50,100 Z"
-      fill="rgba(255, 248, 229, 0.3)"
-      stroke="rgba(255, 248, 229, 0.5)"
-      strokeWidth="2"
-    />
-    <Path
-      d="M30,200 Q200,150 370,200 Q200,250 30,200 Z"
-      fill="rgba(255, 248, 229, 0.2)"
-      stroke="rgba(255, 248, 229, 0.4)"
-      strokeWidth="1.5"
-    />
-    <Path
-      d="M80,300 Q200,250 320,300 Q200,350 80,300 Z"
-      fill="rgba(255, 248, 229, 0.25)"
-      stroke="rgba(255, 248, 229, 0.3)"
-      strokeWidth="1"
-    />
-  </Svg>
-);
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -89,21 +59,20 @@ export default function SplashScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.lineWrapper}>
-        <CurvedLine
+        <Line
           style={{
             position: "absolute",
-            top: hp(-10),
-            width: wp(100),
-            height: hp(40),
+            top: -50,
+            width: width * 1.0,
+            height: width * 1.5,
           }}
         />
-        <CurvedLine
+        <Line
           style={{
             position: "absolute",
-            top: hp(20),
-            width: wp(100),
-            height: hp(40),
-            transform: [{ rotate: "180deg" }],
+            top: 160,
+            width: width * 1.0,
+            height: width * 1.5,
           }}
         />
       </View>

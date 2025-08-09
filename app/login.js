@@ -32,7 +32,7 @@ export default function LoginScreen() {
           text: "확인",
           onPress: () => {
             // 로그인 성공 시 메인 페이지로 이동
-            router.replace("/main");
+            router.replace("/spain");
           },
         },
       ]);
