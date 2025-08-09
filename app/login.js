@@ -12,19 +12,20 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { loginAPI } from "@/services/authAPI";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const colorScheme = useColorScheme();
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert("오류", "이메일과 비밀번호를 입력해주세요.");
       return;
     }
-
     // 간단한 로그인 로직 (실제 앱에서는 API 호출 등을 해야 합니다)
     if (email === "test@test.com" && password === "password") {
       Alert.alert("성공", "로그인에 성공했습니다!", [
@@ -34,10 +35,16 @@ export default function LoginScreen() {
             // 로그인 성공 시 메인 페이지로 이동
             router.replace("/spain");
           },
-        },
-      ]);
-    } else {
-      Alert.alert("실패", "이메일 또는 비밀번호가 잘못되었습니다.");
+        ]);
+      } else {
+        // 로그인 실패
+        Alert.alert("실패", result.error);
+      }
+    } catch (error) {
+      console.error("로그인 오류:", error);
+      Alert.alert("오류", "예상치 못한 오류가 발생했습니다.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -105,11 +112,18 @@ export default function LoginScreen() {
         <TouchableOpacity
           style={[
             styles.loginButton,
-            { backgroundColor: themeColors.tint || "#007AFF" },
+            {
+              backgroundColor: isLoading
+                ? (themeColors.tint || "#007AFF") + "80"
+                : themeColors.tint || "#007AFF",
+            },
           ]}
           onPress={handleLogin}
+          disabled={isLoading}
         >
-          <Text style={styles.loginButtonText}>로그인</Text>
+          <Text style={styles.loginButtonText}>
+            {isLoading ? "로그인 중..." : "로그인"}
+          </Text>
         </TouchableOpacity>
 
         <View style={styles.linkContainer}>
@@ -193,7 +207,6 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   loginButtonText: {
-    color: "white",
     fontSize: 18,
     fontWeight: "600",
     textAlign: "center",
