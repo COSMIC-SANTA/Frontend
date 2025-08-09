@@ -52,6 +52,14 @@ export default function RootLayout() {
           name="optimal-route"
           options={{ title: "최적 경로", headerShown: false }}
         />
+        <Stack.Screen
+          name="splash"
+          options={{ title: "스플래시 화면", headerShown: false }}
+        />
+        <Stack.Screen
+          name="s_convi.js"
+          options={{ title: "편의시설", headerShown: false }}
+        />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
