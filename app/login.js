@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { loginAPI } from "@/services/authAPI";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -22,27 +21,83 @@ export default function LoginScreen() {
   const colorScheme = useColorScheme();
 
   const handleLogin = async () => {
+    // 입력값 검증
     if (!email || !password) {
-      Alert.alert("오류", "이메일과 비밀번호를 입력해주세요.");
+      Alert.alert("입력 오류", "이메일과 비밀번호를 모두 입력해주세요.");
       return;
     }
-    // 간단한 로그인 로직 (실제 앱에서는 API 호출 등을 해야 합니다)
-    if (email === "test@test.com" && password === "password") {
-      Alert.alert("성공", "로그인에 성공했습니다!", [
-        {
-          text: "확인",
-          onPress: () => {
-            // 로그인 성공 시 메인 페이지로 이동
-            router.replace("/spain");
+
+    // 이메일 형식 검증
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert("입력 오류", "올바른 이메일 형식을 입력해주세요.");
+      return;
+    }
+
+    // 비밀번호 길이 검증
+    if (password.length < 6) {
+      Alert.alert("입력 오류", "비밀번호는 최소 6자 이상이어야 합니다.");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // 임시 로그인 검증 (실제 앱에서는 API 호출)
+      if (email === "test@test.com" && password === "password") {
+        // 로그인 성공
+        Alert.alert("로그인 성공", "환영합니다!", [
+          {
+            text: "확인",
+            onPress: () => {
+              router.replace("/spain");
+            },
           },
         ]);
       } else {
         // 로그인 실패
-        Alert.alert("실패", result.error);
+        Alert.alert(
+          "로그인 실패", 
+          "이메일 또는 비밀번호가 올바르지 않습니다.\n\n테스트 계정:\n이메일: test@test.com\n비밀번호: password"
+        );
       }
     } catch (error) {
-      console.error("로그인 오류:", error);
-      Alert.alert("오류", "예상치 못한 오류가 발생했습니다.");
+      console.error("로그인 처리 중 오류 발생:", error);
+      
+      // 에러 타입별 처리
+      if (error.name === 'NetworkError' || error.message.includes('network')) {
+        Alert.alert("네트워크 오류", "인터넷 연결을 확인해주세요.");
+      } else if (error.name === 'TimeoutError') {
+        Alert.alert("시간 초과", "요청 시간이 초과되었습니다. 다시 시도해주세요.");
+      } else if (error.response) {
+        // API 응답 에러
+        const statusCode = error.response.status;
+        switch (statusCode) {
+          case 400:
+            Alert.alert("요청 오류", "잘못된 요청입니다.");
+            break;
+          case 401:
+            Alert.alert("인증 실패", "이메일 또는 비밀번호를 확인해주세요.");
+            break;
+          case 403:
+            Alert.alert("접근 거부", "계정이 비활성화되었습니다.");
+            break;
+          case 404:
+            Alert.alert("계정 없음", "존재하지 않는 계정입니다.");
+            break;
+          case 500:
+            Alert.alert("서버 오류", "서버에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");
+            break;
+          default:
+            Alert.alert("오류", "알 수 없는 오류가 발생했습니다.");
+        }
+      } else {
+        // 기타 예상치 못한 오류
+        Alert.alert(
+          "예상치 못한 오류", 
+          "문제가 지속되면 고객센터에 문의해주세요.\n\n오류 코드: " + (error.code || 'UNKNOWN')
+        );
+      }
     } finally {
       setIsLoading(false);
     }

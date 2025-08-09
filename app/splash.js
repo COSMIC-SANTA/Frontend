@@ -1,29 +1,57 @@
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Dimensions, Image, PixelRatio, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 const { width, height } = Dimensions.get("window");
 
-// 다양한 화면 크기 대응을 위한 기준값들
-const BASE_WIDTH = 375; // 표준 너비
-const BASE_HEIGHT = 812; // 표준 높이
+// 기기 유형 및 특성 감지
+const aspectRatio = height / width;
+const pixelDensity = PixelRatio.get();
+const isTablet = Math.min(width, height) >= 600;
+const isSmallPhone = Math.min(width, height) < 350;
+const isLargePhone = Math.max(width, height) > 900;
 
-// 반응형 크기 계산 함수
+// 디바이스별 스케일링 계수
+const getDeviceScale = () => {
+  if (isTablet) return { width: 1.2, height: 1.1, font: 1.3 };
+  if (isSmallPhone) return { width: 0.9, height: 0.95, font: 0.85 };
+  if (isLargePhone) return { width: 1.05, height: 1.05, font: 1.1 };
+  return { width: 1, height: 1, font: 1 };
+};
+
+const deviceScale = getDeviceScale();
+
+// 반응형 너비/높이 계산 (디바이스 특성 반영)
 const wp = (percentage) => {
-  return (width * percentage) / 100;
+  return (width * percentage * deviceScale.width) / 100;
 };
 
 const hp = (percentage) => {
-  return (height * percentage) / 100;
+  return (height * percentage * deviceScale.height) / 100;
 };
 
-// 폰트 크기 조정 함수 - 다양한 화면에서 읽기 쉽도록
+// 동적 폰트 크기 조정 (화면 크기 + 픽셀 밀도 + 디바이스 유형)
 const normalize = (size) => {
-  const widthScale = width / BASE_WIDTH;
-  const heightScale = height / BASE_HEIGHT;
-  const scale = Math.min(widthScale, heightScale);
-  return Math.max(12, Math.ceil(size * scale));
+  // 화면 면적 기반 기본 스케일
+  const screenArea = width * height;
+  const baseArea = 375 * 812; // 기준 화면 면적
+  const areaScale = Math.sqrt(screenArea / baseArea);
+  
+  // 종횡비 보정 (너무 길거나 넓은 화면 보정)
+  const ratioCorrection = Math.min(1.2, Math.max(0.8, 1 / (aspectRatio * 0.6)));
+  
+  // 픽셀 밀도 보정
+  const densityCorrection = Math.min(1.3, Math.max(0.7, pixelDensity * 0.4));
+  
+  // 최종 크기 계산
+  const finalSize = size * areaScale * ratioCorrection * densityCorrection * deviceScale.font;
+  
+  // 최소/최대 크기 제한
+  const minSize = isTablet ? 14 : 10;
+  const maxSize = isTablet ? 40 : 28;
+  
+  return Math.round(Math.max(minSize, Math.min(maxSize, finalSize)));
 };
 
 
@@ -113,6 +141,10 @@ export default function SplashScreen() {
         style={styles.personImage}
         resizeMode="contain"
       />
+      <Image
+        source={require("../assets/images/Line_1.svg")}
+        resizeMode="contain"
+        />
 
       <View style={styles.textBlock}>
         <Text style={styles.caption}>GO TO THE MOUNTIAN</Text>
@@ -140,57 +172,59 @@ const styles = StyleSheet.create({
   },
   lineWrapper: {
     position: "absolute",
-    top: -height * 0.15,
-    width: width * 1.2,
-    height: height * 0.8,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: -2,
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    zIndex: -1,
   },
   personImage: {
     position: "absolute",
-    width: width * 0.75,
-    height: width * 0.75,
-    top: height * 0.22,
-    right: -width * 0.15,
+    width: isTablet ? wp(50) : wp(70),
+    height: isTablet ? wp(50) : wp(70),
+    top: isTablet ? hp(20) : hp(25),
+    right: isTablet ? wp(10) : wp(5),
+    maxWidth: isTablet ? 400 : 300,
+    maxHeight: isTablet ? 400 : 300,
     zIndex: 2,
   },
   textBlock: {
     position: "absolute",
-    paddingHorizontal: width * 0.08,
-    top: height * 0.65,
-    left: width * 0.08,
-    width: width * 0.8,
+    paddingHorizontal: wp(6),
+    top: isTablet ? hp(55) : hp(62),
+    left: wp(6),
+    width: isTablet ? wp(45) : wp(55),
+    maxWidth: isTablet ? 350 : 250,
   },
   caption: {
     color: "#F2ECD9",
-    fontSize: normalize(18),
-    marginBottom: height * 0.015,
+    fontSize: normalize(isTablet ? 16 : 14),
+    marginBottom: hp(1.5),
     fontStyle: "italic",
-    letterSpacing: 1,
+    letterSpacing: isTablet ? 1 : 0.5,
   },
   title: {
     color: "#000000",
-    fontSize: normalize(32),
+    fontSize: normalize(isTablet ? 28 : 24),
     fontFamily: "System",
     fontWeight: "600",
-    lineHeight: normalize(38),
-    marginTop: height * 0.01,
+    lineHeight: normalize(isTablet ? 34 : 28),
+    marginTop: hp(1),
   },
   bottomRow: {
     position: "absolute",
-    bottom: height * 0.08,
-    width: width * 0.85,
+    bottom: hp(isTablet ? 6 : 8),
+    width: wp(isTablet ? 80 : 85),
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: width * 0.05,
+    paddingHorizontal: wp(4),
   },
   signUpButton: {
-    paddingHorizontal: width * 0.06,
-    paddingVertical: height * 0.015,
+    paddingHorizontal: wp(isTablet ? 8 : 6),
+    paddingVertical: hp(isTablet ? 2 : 1.5),
     backgroundColor: "#325A2A",
-    borderRadius: 25,
+    borderRadius: isTablet ? 30 : 25,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
@@ -200,18 +234,20 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   signup: {
-    fontSize: normalize(16),
+    fontSize: normalize(isTablet ? 14 : 12),
     color: "#FFF8E5",
     fontStyle: "italic",
     fontWeight: "600",
   },
   loginButton: {
     backgroundColor: "#FFF8E5",
-    width: width * 0.2,
-    height: width * 0.2,
-    borderRadius: width * 0.1,
+    width: isTablet ? wp(12) : wp(18),
+    height: isTablet ? wp(12) : wp(18),
+    borderRadius: isTablet ? wp(6) : wp(9),
     justifyContent: "center",
     alignItems: "center",
+    maxWidth: isTablet ? 100 : 70,
+    maxHeight: isTablet ? 100 : 70,
     shadowColor: "#000",
     shadowOpacity: 0.2,
     shadowOffset: { width: 2, height: 2 },
@@ -219,7 +255,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   loginText: {
-    fontSize: normalize(14),
+    fontSize: normalize(isTablet ? 12 : 10),
     fontWeight: "600",
     fontStyle: "italic",
     color: "#000",
