@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // API 기본 설정
-const API_BASE_URL = "https://api.example.com"; // 실제 공공데이터 API URL로 교체 예정
+const API_BASE_URL = "http://localhost:8080"; // 실제 공공데이터 API URL로 교체 예정
 
 // axios 인스턴스 생성
 const apiClient = axios.create({
