@@ -142,7 +142,7 @@ const handleNavigation = (screen) => {
     return (
       <View key={type} style={styles.card}>
          <Image
-    source={require('../assets/images/con.png')} 
+    source={require('../assets/images/bookmark.png')} 
     style={styles.flagImage}
     resizeMode="contain"
   />

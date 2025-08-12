@@ -18,23 +18,23 @@ const { width, height } = Dimensions.get('window');
 
 const rankingData = {
   distance: [
-    { rank: 1, name: 'Jenson Hang', total: 1093, badge: true, avatar: require('../assets/images/con.png') },
-    { rank: 2, name: 'Cheolbong Jo', total: 923, badge: false, avatar: require('../assets/images/con.png') },
-    { rank: 3, name: 'Hajun Baek', total: 701, badge: true, avatar: require('../assets/images/con.png') },
-    { rank: 3, name: 'Daniel', total: 384, badge: true, avatar: require('../assets/images/con.png') },
-    { rank: 3, name: 'Daniel', total: 384, badge: true, avatar: require('../assets/images/con.png') },
+    { rank: 1, name: 'Jenson Hang', total: 1093, badge: true, avatar: require('../assets/images/bookmark.png') },
+    { rank: 2, name: 'Cheolbong Jo', total: 923, badge: false, avatar: require('../assets/images/bookmark.png') },
+    { rank: 3, name: 'Hajun Baek', total: 701, badge: true, avatar: require('../assets/images/bookmark.png') },
+    { rank: 3, name: 'Daniel', total: 384, badge: true, avatar: require('../assets/images/bookmark.png') },
+    { rank: 3, name: 'Daniel', total: 384, badge: true, avatar: require('../assets/images/bookmark.png') },
   ],
   time: [
-    { rank: 1, name: 'Gildong Hong', total: 432, badge: true, avatar: require('../assets/images/con.png') },
-    { rank: 2, name: 'Cheolbong Jo', total: 401, badge: false, avatar: require('../assets/images/con.png') },
-    { rank: 3, name: 'Daniel', total: 384, badge: true, avatar: require('../assets/images/con.png') },
-    { rank: 3, name: 'Daniel', total: 384, badge: true, avatar: require('../assets/images/con.png') },
-    { rank: 3, name: 'Daniel', total: 384, badge: true, avatar: require('../assets/images/con.png') },
+    { rank: 1, name: 'Gildong Hong', total: 432, badge: true, avatar: require('../assets/images/bookmark.png') },
+    { rank: 2, name: 'Cheolbong Jo', total: 401, badge: false, avatar: require('../assets/images/bookmark.png') },
+    { rank: 3, name: 'Daniel', total: 384, badge: true, avatar: require('../assets/images/bookmark.png') },
+    { rank: 3, name: 'Daniel', total: 384, badge: true, avatar: require('../assets/images/bookmark.png') },
+    { rank: 3, name: 'Daniel', total: 384, badge: true, avatar: require('../assets/images/bookmark.png') },
   ],
   steps: [
-    { rank: 1, name: 'Jenson Hang', total: 32780, badge: true, avatar: require('../assets/images/con.png') },
-    { rank: 2, name: 'Daniel', total: 31900, badge: false, avatar: require('../assets/images/con.png') },
-    { rank: 3, name: 'Jeong Seonwoong', total: 29820, badge: true, avatar: require('../assets/images/con.png') },
+    { rank: 1, name: 'Jenson Hang', total: 32780, badge: true, avatar: require('../assets/images/bookmark.png') },
+    { rank: 2, name: 'Daniel', total: 31900, badge: false, avatar: require('../assets/images/bookmark.png') },
+    { rank: 3, name: 'Jeong Seonwoong', total: 29820, badge: true, avatar: require('../assets/images/bookmark.png') },
   ]
 };
 
@@ -59,7 +59,7 @@ export default function RankingScreen() {
       <Image source={item.avatar} style={styles.avatar} />
       <Text style={styles.name}>{item.name}</Text>
       {item.badge && (
-        <Image source={require('../assets/images/con.png')} style={styles.badge} />
+        <Image source={require('../assets/images/bookmark.png')} style={styles.badge} />
       )}
       <Text style={styles.total}>
         Total: {item.total}{selectedType === 'steps' ? ' steps' : 'm'}
@@ -120,7 +120,7 @@ export default function RankingScreen() {
           <Text style={styles.userText}>complete M.: 16</Text>
           <Text style={styles.userText}>total {selectedType}: 676{selectedType === 'steps' ? ' steps' : 'm'}</Text>
           <Text style={styles.userText}>Title: Conqueror of Seoraksan</Text>
-          <Image source={require('../assets/images/con.png')} style={styles.badge} />
+          <Image source={require('../assets/images/bookmark.png')} style={styles.badge} />
         </View>
         {/* 하단 영역: 네비게이션 바 */}
      
