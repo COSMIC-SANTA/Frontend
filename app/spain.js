@@ -1,9 +1,19 @@
-// MainScreen.js
-import { ScrollView, View, StyleSheet, Text, Image, TouchableOpacity, Dimensions, FlatList, ActivityIndicator } from "react-native";
+
+import {
+  ScrollView,
+  View,
+  StyleSheet,
+  Text,
+  Image,
+  TouchableOpacity,
+  Dimensions,
+  FlatList,
+  ActivityIndicator,
+  TextInput,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Line from "../assets/images/Line_1.svg";
 import { useState, useEffect, useMemo } from "react";
-import WeatherBox from "./s_weather";
 import { useRouter } from "expo-router";
 import BottomNavBar from "./s_navigationbar";
 import { mountainService, weatherService } from "../services/api";
@@ -12,8 +22,8 @@ const { width } = Dimensions.get("window");
 const CATEGORIES = ["popular", "high", "low\nmountain", "activity\n(leisure)"];
 
 const INTEREST_ENUM = {
-  "popular": "POPULAR",
-  "high": "HIGH",
+  popular: "POPULAR",
+  high: "HIGH",
   "low\nmountain": "LOW",
   "activity\n(leisure)": "ACTIVITY",
 };
@@ -25,26 +35,17 @@ const MEDALS = [
   { id: "4", title: "explore", medal: require("../assets/images/redmedal.png") },
 ];
 
-
 export default function MainScreen() {
   const router = useRouter();
 
-  // 선택 카테고리(라벨)
+  // --- 배너 카테고리 & 데이터 ---
   const [selectedCategory, setSelectedCategory] = useState("high");
-  // 서버에 보낼 enum
   const interestEnum = useMemo(() => INTEREST_ENUM[selectedCategory], [selectedCategory]);
 
-  // 서버 데이터 상태
   const [mountains, setMountains] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-    // savemountainsFromApi 테스트 상태
-    const [syncLoading, setSyncLoading] = useState(false);
-    const [syncError, setSyncError] = useState("");
-    const [syncResult, setSyncResult] = useState(null);
-
-  // 카테고리 변경 시 API 호출
   useEffect(() => {
     const controller = new AbortController();
 
@@ -54,8 +55,7 @@ export default function MainScreen() {
       setError("");
       try {
         const data = await mountainService.fetchByInterest(interestEnum, { signal: controller.signal });
-        // data: [{ id, name, image }]
-        setMountains(data);
+        setMountains(data); // [{ id, name, image }]
       } catch (e) {
         if (e.name !== "CanceledError" && e.name !== "AbortError") {
           setError("산 목록을 불러오지 못했습니다.");
@@ -73,22 +73,70 @@ export default function MainScreen() {
     router.push(`/${screen}`);
   };
 
-    // savemountainsFromApi 호출
-    const handleSyncMountains = async () => {
-      setSyncLoading(true);
-      setSyncError("");
-      setSyncResult(null);
+  // --- 날씨 검색 상태 ---
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [candidates, setCandidates] = useState([]); // [{ mountainName, mountainAddress, mapX, mapY }]
+
+  const [selectedMountain, setSelectedMountain] = useState(null); // { mountainName, mountainAddress, mapX, mapY }
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState("");
+  const [weather, setWeather] = useState(null); // { temperature, weatherCode }
+
+  // 산 이름 자동완성 (디바운스 350ms)
+  useEffect(() => {
+    if (!query?.trim()) {
+      setCandidates([]);
+      setSearchError("");
+      return;
+    }
+    const controller = new AbortController();
+    const t = setTimeout(async () => {
+      setSearching(true);
+      setSearchError("");
       try {
-        const data = await weatherService.fetchData(); 
-        console.log("savemountainsFromApi 응답:", data);
-        setSyncResult(data); // 어떤 형태든 화면에 JSON으로 표시해서 확인
+        const list = await weatherService.searchMountainsByName(query.trim(), { signal: controller.signal });
+        setCandidates(list); // [{ mountainName, mountainAddress, mapX, mapY }]
       } catch (e) {
-        console.error("savemountainsFromApi 에러:", e);
-        setSyncError("동기화 요청에 실패했습니다.");
+        if (e.name !== "CanceledError" && e.name !== "AbortError") {
+          setSearchError("산 검색 중 오류가 발생했습니다.");
+        }
       } finally {
-        setSyncLoading(false);
+        setSearching(false);
       }
+    }, 350);
+
+    return () => {
+      clearTimeout(t);
+      controller.abort();
     };
+  }, [query]);
+
+  // 산 선택 → 좌표로 날씨 조회
+  const handlePickMountain = async (item) => {
+    setSelectedMountain(item);
+    setQuery(item.mountainName);
+    setCandidates([]);
+    setWeather(null);
+    setWeatherError("");
+    setWeatherLoading(true);
+
+    try {
+      const res = await weatherService.getCurrentWeather({
+        mapX: Number(item.mapX),
+        mapY: Number(item.mapY),
+      });
+      // res = { message: "success", data: { temperature, weatherCode } }
+      setWeather(res);
+    } catch (e) {
+      if (e.name !== "CanceledError" && e.name !== "AbortError") {
+        setWeatherError("날씨 정보를 불러오지 못했습니다.");
+      }
+    } finally {
+      setWeatherLoading(false);
+    }
+  };
 
   const renderCard = ({ item }) => (
     <View style={styles.cardWrapper}>
@@ -102,29 +150,42 @@ export default function MainScreen() {
     </View>
   );
 
+  const weatherLabel = (code) => {
+    if (!code) return "-";
+    const map = {
+      CLEAR: "맑음",
+      CLEAN: "맑음",
+      CLOUDY: "구름",
+      RAIN: "비",
+      SNOW: "눈",
+      FOG: "안개",
+      DRIZZLE: "이슬비",
+      THUNDER: "뇌우",
+    };
+    return map[code] || code;
+  };
+
   return (
     <View style={styles.wrapper}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {/* 초록색 헤더 부분 시작 */}
         <View style={styles.headerContainer}>
-          {/* 왼쪽 곡선 부분 */}
+          {/* 왼쪽 곡선 */}
           <View style={{ position: "absolute", bottom: 10, left: -400, zIndex: -1 }}>
             <Line width={width * 1.2} height={width * 0.5} />
           </View>
           <View style={{ position: "absolute", bottom: 45, left: -400.5, zIndex: -1 }}>
             <Line width={width * 1.2} height={width * 0.5} />
           </View>
-
-          {/* 오른쪽 곡선 부분 */}
+          {/* 오른쪽 곡선 */}
           <View style={{ position: "absolute", bottom: -150, right: 0, zIndex: -1 }}>
             <Line width={width * 1.2} height={width * 0.5} style={{ transform: [{ translateX: width * 0.4 }] }} />
           </View>
-
           <View style={{ position: "absolute", bottom: -150, right: 0, zIndex: -1 }}>
             <Line width={width * 1.21} height={width * 0.5} style={{ transform: [{ translateX: width * 0.35 }] }} />
           </View>
 
-          {/* 헤더 텍스트 부분 */}
+          {/* 헤더 텍스트 */}
           <View style={styles.textContainer}>
             <Text style={styles.line1}>Go</Text>
             <Text style={styles.line2}>to</Text>
@@ -132,47 +193,27 @@ export default function MainScreen() {
             <Text style={styles.line4}>mountain</Text>
           </View>
 
-          {/* 톱니바퀴 아이콘 부분 */}
+          {/* 설정 아이콘 */}
           <View style={styles.rightContainer}>
             <TouchableOpacity style={styles.settingsButton}>
               <Ionicons name="settings-outline" size={30} color="black" />
             </TouchableOpacity>
           </View>
         </View>
-        {/* 초록 헤더 영역 끝 */}
+        {/* 초록 헤더 끝 */}
 
         {/* 왼쪽 위 사람 일러스트 */}
         <Image source={require("../assets/images/mainperson.png")} style={styles.personImage2} resizeMode="contain" />
 
-        {/* 바디 영역 시작*/}
+        {/* 바디 영역 */}
         <View style={styles.bodyContainer}>
           <View style={styles.wrapper}>
-            {/* 사용자 인삿말 */}
             <Text style={styles.greeting}>Hi, Daniel!</Text>
             <Text style={styles.text2}>what is the main purpose of hiking?</Text>
           </View>
 
-            {/* === savemountainsFromApi 동기화 테스트 섹션 === */}
-                    <View style={styles.section}>
-            <Text style={styles.debugTitle}>Data Sync (savemountainsFromApi)</Text>
-            <TouchableOpacity style={styles.syncButton} onPress={handleSyncMountains} disabled={syncLoading}>
-              {syncLoading ? <ActivityIndicator /> : <Text style={styles.syncButtonText}>동기화 요청 보내기</Text>}
-            </TouchableOpacity>
-
-            {syncError ? (
-              <Text style={styles.debugError}>{syncError}</Text>
-            ) : syncResult ? (
-              <Text style={styles.debugResult}>
-                {typeof syncResult === "object" ? JSON.stringify(syncResult, null, 2) : String(syncResult)}
-              </Text>
-            ) : (
-              <Text style={styles.debugHint}>버튼을 눌러 요청을 테스트하세요.</Text>
-            )}
-          </View>
-          {/* === /동기화 테스트 섹션 === */}
-
+          {/* 카테고리 & 배너 */}
           <View style={styles.section}>
-            {/* 카테고리 선택 */}
             <View style={styles.categoryRow}>
               {CATEGORIES.map((cat) => (
                 <TouchableOpacity key={cat} onPress={() => setSelectedCategory(cat)}>
@@ -184,7 +225,6 @@ export default function MainScreen() {
               ))}
             </View>
 
-            {/* 산 배너 리스트 */}
             {loading ? (
               <ActivityIndicator size="large" style={{ marginVertical: 24 }} />
             ) : error ? (
@@ -208,15 +248,113 @@ export default function MainScreen() {
             )}
           </View>
 
-          {/* 임시 날씨 위젯 */}
-          <WeatherBox />
+          {/* --- 날씨 검색/표시 영역 --- */}
+          <View style={styles.weatherSection}>
+            <Text style={styles.weatherTitle}>Search mountain weather</Text>
 
+            {/* 검색 인풋 */}
+            <View style={styles.searchRow}>
+              <Ionicons name="search" size={18} color="#5C7145" style={{ marginRight: 6 }} />
+              <TextInput
+                style={styles.searchInput}
+                value={query}
+                onChangeText={setQuery}
+                placeholder="산 이름을 입력하세요 (예: 지리산, 설악산)"
+                placeholderTextColor="#9BAA8C"
+                returnKeyType="search"
+              />
+              {searching && <ActivityIndicator size="small" />}
+            </View>
+            {searchError ? <Text style={styles.errorText}>{searchError}</Text> : null}
+
+            {/* 자동완성 드롭다운 */}
+            {candidates.length > 0 && (
+              <View style={styles.dropdown}>
+                <FlatList
+                  data={candidates}
+                  keyExtractor={(_, idx) => String(idx)}
+                  keyboardShouldPersistTaps="handled"
+                  renderItem={({ item }) => (
+                    <TouchableOpacity style={styles.dropdownItem} onPress={() => handlePickMountain(item)}>
+                      <Ionicons name="pin-outline" size={16} color="#325A2A" style={{ marginRight: 8 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.dropdownName}>{item.mountainName}</Text>
+                        <Text style={styles.dropdownAddr} numberOfLines={1}>
+                          {item.mountainAddress}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            )}
+
+            {/* 선택한 산 + 날씨 카드 */}
+            <View style={styles.weatherCard}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
+                <Ionicons name="trail-sign-outline" size={18} color="#325A2A" style={{ marginRight: 6 }} />
+                <Text style={styles.selectedTitle}>
+                  {selectedMountain ? selectedMountain.mountainName : "산을 선택하세요"}
+                </Text>
+              </View>
+
+              {selectedMountain && (
+                <Text style={styles.coordText}>
+                  ({Number(selectedMountain.mapY).toFixed(5)}, {Number(selectedMountain.mapX).toFixed(5)})
+                </Text>
+              )}
+
+              {weatherLoading ? (
+                <ActivityIndicator size="large" style={{ marginTop: 12 }} />
+              ) : weatherError ? (
+                <Text style={styles.errorText}>{weatherError}</Text>
+              ) : weather ? (
+                <View style={styles.weatherInfoRow}>
+                  {/* 온도 */}
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Ionicons name="thermometer-outline" size={22} color="#000" style={{ marginRight: 6 }} />
+                    <Text style={styles.tempText}>{weather.temperature?.toFixed?.(1)}°C</Text>
+                  </View>
+
+      {/* 날씨 코드 + 아이콘 */}
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <Ionicons
+          name={
+            weather.weatherCode === "RAIN"
+              ? "rainy-outline"
+              : weather.weatherCode === "CLEAR"
+              ? "sunny-outline"
+              : weather.weatherCode === "CLEAN"
+              ? "sunny-outline"
+              : weather.weatherCode === "SNOW"
+              ? "snow-outline"
+              : weather.weatherCode === "FOG"
+              ? "cloudy-outline"
+              : weather.weatherCode === "DRIZZLE"
+              ? "water-outline"
+              : weather.weatherCode === "THUNDER"
+              ? "thunderstorm-outline"
+              : "cloud-outline"
+          }
+          size={22}
+          color="#000"
+          style={{ marginRight: 6 }}
+        />
+        <Text style={styles.codeText}>{weatherLabel(weather.weatherCode)}</Text>
+      </View>
+    </View>
+  ) : (
+    <Text style={styles.helperText}>검색 후 목록에서 산을 선택하면 현재 날씨가 표시됩니다.</Text>
+  )}
+</View>
+          </View>
+
+          {/* 메달 섹션 */}
           <View style={styles.textContainer2}>
             <Text style={styles.line5}>Medal</Text>
             <Text style={styles.line6}>Achieve your goals and collect your medals!</Text>
           </View>
 
-          {/* 메달 리스트 */}
           <FlatList
             horizontal
             data={MEDALS}
@@ -242,16 +380,9 @@ export default function MainScreen() {
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: "#FBF1CF",
-  },
-  content: {
-    //paddingBottom: 100,
-  },
+  wrapper: { flex: 1 },
+  container: { flex: 1, backgroundColor: "#FBF1CF" },
+  content: {},
   headerContainer: {
     backgroundColor: "#325A2A",
     paddingTop: 10,
@@ -262,53 +393,15 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     zIndex: 1,
   },
-  textContainer: {
-    flexDirection: "column",
-    zIndex: 2,
-  },
-  line1: {
-    fontSize: 40,
-    color: "#000000",
-    marginBottom: -20,
-    fontWeight: "bold",
-    fontFamily: "Snell Roundhand",
-  },
-  line2: {
-    fontSize: 45,
-    color: "#000000",
-    marginBottom: -20,
-    fontWeight: "bold",
-    fontFamily: "Snell Roundhand",
-  },
-  line3: {
-    fontSize: 45,
-    marginBottom: -20,
-    color: "#000000",
-    fontWeight: "bold",
-    fontFamily: "Snell Roundhand",
-  },
-  line4: {
-    fontSize: 40,
-    marginBottom: -20,
-    color: "#000000",
-    fontWeight: "bold",
-    fontFamily: "Snell Roundhand",
-  },
-  rightContainer: {
-    alignItems: "flex-end",
-  },
-  settingsButton: {
-    marginTop: 5,
-    padding: 8,
-  },
-  personImage2: {
-    position: "absolute",
-    top: 40,
-    right: 50,
-    width: 200,
-    height: 200,
-    zIndex: 3,
-  },
+  textContainer: { flexDirection: "column", zIndex: 2 },
+  line1: { fontSize: 40, color: "#000000", marginBottom: -20, fontWeight: "bold", fontFamily: "Snell Roundhand" },
+  line2: { fontSize: 45, color: "#000000", marginBottom: -20, fontWeight: "bold", fontFamily: "Snell Roundhand" },
+  line3: { fontSize: 45, marginBottom: -20, color: "#000000", fontWeight: "bold", fontFamily: "Snell Roundhand" },
+  line4: { fontSize: 40, marginBottom: -20, color: "#000000", fontWeight: "bold", fontFamily: "Snell Roundhand" },
+  rightContainer: { alignItems: "flex-end" },
+  settingsButton: { marginTop: 5, padding: 8 },
+  personImage2: { position: "absolute", top: 40, right: 50, width: 200, height: 200, zIndex: 3 },
+
   bodyContainer: {
     width: "100%",
     backgroundColor: "#FFF9E5",
@@ -321,11 +414,8 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minHeight: 0,
   },
-  image: {
-    width: 200,
-    height: 100,
-    marginTop: 10,
-  },
+
+  image: { width: 200, height: 100, marginTop: 10 },
   greeting: {
     fontSize: 40,
     fontFamily: "Snell Roundhand",
@@ -343,6 +433,8 @@ const styles = StyleSheet.create({
     marginLeft: 30,
     opacity: 0.5,
   },
+
+  section: { marginTop: 10 },
   categoryRow: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -354,9 +446,7 @@ const styles = StyleSheet.create({
     fontFamily: "Snell Roundhand",
     fontWeight: "bold",
   },
-  categoryWrapper: {
-    alignItems: "center",
-  },
+  categoryWrapper: { alignItems: "center" },
   categoryText: {
     fontSize: 18,
     fontFamily: "Snell Roundhand",
@@ -367,17 +457,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
     lineHeight: 22,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#5C7145",
-    marginTop: 50,
-  },
-  selectedCategory: {
-    color: "#5C7145",
-    fontWeight: "bold",
-  },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#5C7145", marginTop: 50 },
+  selectedCategory: { color: "#5C7145", fontWeight: "bold" },
+
   mountainImage: {
     width: "100%",
     height: 280,
@@ -387,10 +469,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
-  cardWrapper: {
-    alignItems: "center",
-    marginHorizontal: 10,
-  },
+  cardWrapper: { alignItems: "center", marginHorizontal: 10 },
   card: {
     width: 200,
     height: 300,
@@ -413,40 +492,77 @@ const styles = StyleSheet.create({
     color: "#000",
     textTransform: "lowercase",
   },
-  textContainer2: {
+
+  // --- 날씨 영역 ---
+  weatherSection: { marginTop: 24, paddingHorizontal: 20 },
+  weatherTitle: {
+    fontSize: 24,
+    fontFamily: "Snell Roundhand",
+    fontWeight: "bold",
+    marginBottom: 10,
+    color: "#000",
+  },
+  searchRow: {
     flexDirection: "row",
-    justifyContent: "space-start",
-  },
-  line5: {
-    marginLeft: 50,
-    marginTop: 30,
-    fontSize: 32,
-    fontFamily: "Snell Roundhand",
-    fontWeight: "bold",
-  },
-  line6: {
-    marginLeft: 30,
-    marginTop: 40,
-    fontSize: 20,
-    fontFamily: "Snell Roundhand",
-    fontWeight: "bold",
-    opacity: 0.5,
-  },
-  medalList: {
-    paddingHorizontal: 10,
-    marginBottom: -20,
-  },
-  medalItem: {
     alignItems: "center",
-    marginRight: 20,
-    marginLeft: 10,
-    marginTop: 30,
+    backgroundColor: "#F6F3E6",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 2,
+    borderColor: "#E8E0C6",
   },
-  medal: {
-    width: 100,
-    height: 100,
-    resizeMode: "contain",
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: "Snell Roundhand",
+    fontWeight: "bold",
+    color: "#000",
+    paddingVertical: 2,
   },
+  dropdown: {
+    marginTop: 8,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: "#E8E0C6",
+    backgroundColor: "#FFF",
+    maxHeight: 240,
+    overflow: "hidden",
+  },
+  dropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1EAD6",
+  },
+  dropdownName: { fontSize: 16, fontWeight: "700", color: "#1E1E1E" },
+  dropdownAddr: { fontSize: 12, color: "#666", marginTop: 2 },
+
+  weatherCard: {
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: "#F0F7F3",
+    borderWidth: 2,
+    borderColor: "#DCE8DF",
+  },
+  selectedTitle: { fontSize: 18, fontWeight: "700", color: "#325A2A" },
+  coordText: { fontSize: 12, color: "#666", marginTop: 2 },
+  weatherInfoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10 },
+  tempText: { fontSize: 22, fontWeight: "900" },
+  codeText: { fontSize: 18, fontWeight: "800" },
+  helperText: { fontSize: 12, color: "#666", marginTop: 6 },
+  errorText: { color: "#C43D3D", marginTop: 8 },
+
+  // --- 메달 ---
+  textContainer2: { flexDirection: "row", justifyContent: "space-start" },
+  line5: { marginLeft: 50, marginTop: 30, fontSize: 32, fontFamily: "Snell Roundhand", fontWeight: "bold" },
+  line6: { marginLeft: 30, marginTop: 40, fontSize: 20, fontFamily: "Snell Roundhand", fontWeight: "bold", opacity: 0.5 },
+  medalList: { paddingHorizontal: 10, marginBottom: -20 },
+  medalItem: { alignItems: "center", marginRight: 20, marginLeft: 10, marginTop: 30 },
+  medal: { width: 100, height: 100, resizeMode: "contain" },
   medalcircle: {
     width: 150,
     height: 150,
@@ -462,10 +578,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 5,
   },
-  medalTitle: {
-    fontFamily: "Snell Roundhand",
-    fontWeight: "bold",
-    fontSize: 20,
-    marginTop: 2,
-  },
+  medalTitle: { fontFamily: "Snell Roundhand", fontWeight: "bold", fontSize: 20, marginTop: 2 },
 });
+
