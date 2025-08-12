@@ -1,4 +1,3 @@
-
 import {
   ScrollView,
   View,
@@ -127,7 +126,7 @@ export default function MainScreen() {
         mapX: Number(item.mapX),
         mapY: Number(item.mapY),
       });
-      // res = { message: "success", data: { temperature, weatherCode } }
+      // res = { message: "success", data: { temperature, weatherCode } } 형태일 수 있으니 필요시 가공
       setWeather(res);
     } catch (e) {
       if (e.name !== "CanceledError" && e.name !== "AbortError") {
@@ -235,7 +234,7 @@ export default function MainScreen() {
               <FlatList
                 horizontal
                 data={mountains}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item) => String(item.id)}
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{
                   paddingHorizontal: 10,
@@ -313,63 +312,46 @@ export default function MainScreen() {
                   {/* 온도 */}
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
                     <Ionicons name="thermometer-outline" size={22} color="#000" style={{ marginRight: 6 }} />
-                    <Text style={styles.tempText}>{weather.temperature?.toFixed?.(1)}°C</Text>
+                    <Text style={styles.tempText}>
+                      {typeof weather.temperature === "number"
+                        ? `${weather.temperature.toFixed(1)}°C`
+                        : "-"}
+                    </Text>
                   </View>
 
-      {/* 날씨 코드 + 아이콘 */}
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <Ionicons
-          name={
-            weather.weatherCode === "RAIN"
-              ? "rainy-outline"
-              : weather.weatherCode === "CLEAR"
-              ? "sunny-outline"
-              : weather.weatherCode === "CLEAN"
-              ? "sunny-outline"
-              : weather.weatherCode === "SNOW"
-              ? "snow-outline"
-              : weather.weatherCode === "FOG"
-              ? "cloudy-outline"
-              : weather.weatherCode === "DRIZZLE"
-              ? "water-outline"
-              : weather.weatherCode === "THUNDER"
-              ? "thunderstorm-outline"
-              : "cloud-outline"
-          }
-          size={22}
-          color="#000"
-          style={{ marginRight: 6 }}
-        />
-        <Text style={styles.codeText}>{weatherLabel(weather.weatherCode)}</Text>
-      </View>
-    </View>
-  ) : (
-    <Text style={styles.helperText}>검색 후 목록에서 산을 선택하면 현재 날씨가 표시됩니다.</Text>
-  )}
-</View>
-          </View>
-
-          {/* 메달 섹션 */}
-          <View style={styles.textContainer2}>
-            <Text style={styles.line5}>Medal</Text>
-            <Text style={styles.line6}>Achieve your goals and collect your medals!</Text>
-          </View>
-
-          <FlatList
-            horizontal
-            data={MEDALS}
-            keyExtractor={(item) => item.id}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.medalList}
-            renderItem={({ item }) => (
-              <View style={styles.medalItem}>
-                <View style={styles.medalcircle}>
-                  <Image source={item.medal} style={styles.medal} />
+                  {/* 날씨 코드 + 아이콘 */}
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Ionicons
+                      name={
+                        weather.weatherCode === "RAIN"
+                          ? "rainy-outline"
+                          : weather.weatherCode === "CLEAR"
+                          ? "sunny-outline"
+                          : weather.weatherCode === "CLEAN"
+                          ? "sunny-outline"
+                          : weather.weatherCode === "SNOW"
+                          ? "snow-outline"
+                          : weather.weatherCode === "FOG"
+                          ? "cloudy-outline"
+                          : weather.weatherCode === "DRIZZLE"
+                          ? "water-outline"
+                          : weather.weatherCode === "THUNDER"
+                          ? "thunderstorm-outline"
+                          : "cloud-outline"
+                      }
+                      size={22}
+                      color="#000"
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text style={styles.codeText}>{weatherLabel(weather.weatherCode)}</Text>
+                  </View>
                 </View>
-                <Text style={styles.medalTitle}>{item.title}</Text>
-              </View>
-            )}
-          />
+              ) : (
+                <Text style={styles.helperText}>검색 후 목록에서 산을 선택하면 현재 날씨가 표시됩니다.</Text>
+              )}
+            </View>
+          </View>
+          {/* --- 날씨 끝 --- */}
         </View>
         {/* 바디 영역 끝 */}
       </ScrollView>
@@ -400,7 +382,7 @@ const styles = StyleSheet.create({
   line4: { fontSize: 40, marginBottom: -20, color: "#000000", fontWeight: "bold", fontFamily: "Snell Roundhand" },
   rightContainer: { alignItems: "flex-end" },
   settingsButton: { marginTop: 5, padding: 8 },
-  personImage2: { position: "absolute", top: 40, right: 50, width: 200, height: 200, zIndex: 3 },
+  personImage2: { position: "absolute", top: 40, right: 40, width: 200, height: 200, zIndex: 3 },
 
   bodyContainer: {
     width: "100%",
@@ -425,7 +407,7 @@ const styles = StyleSheet.create({
     marginLeft: 30,
   },
   text2: {
-    fontSize: 30,
+    fontSize: 20,
     fontFamily: "Snell Roundhand",
     fontWeight: "bold",
     color: "#000",
@@ -441,10 +423,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginVertical: 10,
     paddingHorizontal: 16,
-    marginTop: 50,
-    fontSize: 30,
-    fontFamily: "Snell Roundhand",
-    fontWeight: "bold",
+    marginTop: 5,
   },
   categoryWrapper: { alignItems: "center" },
   categoryText: {
@@ -555,29 +534,4 @@ const styles = StyleSheet.create({
   codeText: { fontSize: 18, fontWeight: "800" },
   helperText: { fontSize: 12, color: "#666", marginTop: 6 },
   errorText: { color: "#C43D3D", marginTop: 8 },
-
-  // --- 메달 ---
-  textContainer2: { flexDirection: "row", justifyContent: "space-start" },
-  line5: { marginLeft: 50, marginTop: 30, fontSize: 32, fontFamily: "Snell Roundhand", fontWeight: "bold" },
-  line6: { marginLeft: 30, marginTop: 40, fontSize: 20, fontFamily: "Snell Roundhand", fontWeight: "bold", opacity: 0.5 },
-  medalList: { paddingHorizontal: 10, marginBottom: -20 },
-  medalItem: { alignItems: "center", marginRight: 20, marginLeft: 10, marginTop: 30 },
-  medal: { width: 100, height: 100, resizeMode: "contain" },
-  medalcircle: {
-    width: 150,
-    height: 150,
-    borderRadius: 100,
-    borderWidth: 6,
-    borderColor: "#325A2A",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 3, height: 5 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  medalTitle: { fontFamily: "Snell Roundhand", fontWeight: "bold", fontSize: 20, marginTop: 2 },
 });
-
