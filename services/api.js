@@ -38,4 +38,22 @@ export const mountainService = {
   },
 };
 
+export const weatherService = {
+  fetchData: async (payload = {}, { signal } = {}) => {
+    try {
+      const res = await apiClient.post(
+        "/api/main/saveMountainsFromApi",
+        payload, // POST body로 전송할 데이터
+        { signal }
+      );
+
+      return res.data;
+    } catch (error) {
+      console.error("API 요청 실패:", error);
+      throw error;
+    }
+  },
+};
+
+
 export default apiClient;

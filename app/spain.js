@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from "react";
 import WeatherBox from "./s_weather";
 import { useRouter } from "expo-router";
 import BottomNavBar from "./s_navigationbar";
-import { mountainService } from "../services/api";
+import { mountainService, weatherService } from "../services/api";
 
 const { width } = Dimensions.get("window");
 const CATEGORIES = ["popular", "high", "low\nmountain", "activity\n(leisure)"];
@@ -39,6 +39,11 @@ export default function MainScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+    // savemountainsFromApi 테스트 상태
+    const [syncLoading, setSyncLoading] = useState(false);
+    const [syncError, setSyncError] = useState("");
+    const [syncResult, setSyncResult] = useState(null);
+
   // 카테고리 변경 시 API 호출
   useEffect(() => {
     const controller = new AbortController();
@@ -67,6 +72,23 @@ export default function MainScreen() {
   const handleNavigation = (screen) => {
     router.push(`/${screen}`);
   };
+
+    // savemountainsFromApi 호출
+    const handleSyncMountains = async () => {
+      setSyncLoading(true);
+      setSyncError("");
+      setSyncResult(null);
+      try {
+        const data = await weatherService.fetchData(); 
+        console.log("savemountainsFromApi 응답:", data);
+        setSyncResult(data); // 어떤 형태든 화면에 JSON으로 표시해서 확인
+      } catch (e) {
+        console.error("savemountainsFromApi 에러:", e);
+        setSyncError("동기화 요청에 실패했습니다.");
+      } finally {
+        setSyncLoading(false);
+      }
+    };
 
   const renderCard = ({ item }) => (
     <View style={styles.cardWrapper}>
@@ -129,6 +151,25 @@ export default function MainScreen() {
             <Text style={styles.greeting}>Hi, Daniel!</Text>
             <Text style={styles.text2}>what is the main purpose of hiking?</Text>
           </View>
+
+            {/* === savemountainsFromApi 동기화 테스트 섹션 === */}
+                    <View style={styles.section}>
+            <Text style={styles.debugTitle}>Data Sync (savemountainsFromApi)</Text>
+            <TouchableOpacity style={styles.syncButton} onPress={handleSyncMountains} disabled={syncLoading}>
+              {syncLoading ? <ActivityIndicator /> : <Text style={styles.syncButtonText}>동기화 요청 보내기</Text>}
+            </TouchableOpacity>
+
+            {syncError ? (
+              <Text style={styles.debugError}>{syncError}</Text>
+            ) : syncResult ? (
+              <Text style={styles.debugResult}>
+                {typeof syncResult === "object" ? JSON.stringify(syncResult, null, 2) : String(syncResult)}
+              </Text>
+            ) : (
+              <Text style={styles.debugHint}>버튼을 눌러 요청을 테스트하세요.</Text>
+            )}
+          </View>
+          {/* === /동기화 테스트 섹션 === */}
 
           <View style={styles.section}>
             {/* 카테고리 선택 */}
