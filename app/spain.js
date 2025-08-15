@@ -1,12 +1,12 @@
 // MainScreen.js
-import { ScrollView, View, StyleSheet, Text, Image, TouchableOpacity, Dimensions, FlatList, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Line from "../assets/images/Line_1.svg";
-import { useState, useEffect, useMemo } from "react";
-import WeatherBox from "./s_weather";
 import { useRouter } from "expo-router";
-import BottomNavBar from "./s_navigationbar";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Dimensions, FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Line from "../assets/images/Line_1.svg";
 import { mountainService } from "../services/api";
+import BottomNavBar from "./s_navigationbar";
+import WeatherBox from "./s_weather";
 
 const { width } = Dimensions.get("window");
 const CATEGORIES = ["popular", "high", "low\nmountain", "activity\n(leisure)"];

@@ -1,10 +1,13 @@
 import { View, Text, StyleSheet, Image, TouchableOpacity, Dimensions } from "react-native";
 import Line from "../assets/images/Line_1.svg";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "expo-router";
+import Svg, {Path, G} from 'react-native-svg';
 
 const { width, height } = Dimensions.get("window");
 
+const ASPECT_RATIO = 1.5;
+const LINE_WIDTH_RATIO = 1.0;
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -41,19 +44,19 @@ export default function SplashScreen() {
     <View style={styles.container}>
       <View style={styles.lineWrapper}>
         <Line
+          width={width * LINE_WIDTH_RATIO}
+          height={width * LINE_WIDTH_RATIO * 0.5}
           style={{
             position: "absolute",
             top: -50,
-            width: width * 1.0,
-            height: width * 1.5,
           }}
         />
         <Line
+          width={width * LINE_WIDTH_RATIO}
+          height={width * LINE_WIDTH_RATIO * 0.5}
           style={{
             position: "absolute",
             top: 160,
-            width: width * 1.0,
-            height: width * 1.5,
           }}
         />
       </View>
@@ -138,20 +141,21 @@ const styles = StyleSheet.create({
     paddingRight: 130,
   },
   signup: {
-    fontSize: 30,
+    fontSize: 20,
     color: "#000",
     fontStyle: "italic",
     fontWeight: "600",
     marginLeft: 10,
   },
   signUpButton: {
+    display:1,
     flexDirection: "row",
     paddingHorizontal: 16,
     paddingVertical: 10,
     backgroundColor: "#325A2A",
     borderRadius: 80,
-    marginLeft: 400,
-    marginRight: 50,
+    marginLeft: 180,
+    marginRight: 30,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
@@ -160,9 +164,10 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
   },
   loginButton: {
+    display:1,
     backgroundColor: "#FFF8E5",
     width: 100,
-    height: 100,
+    height: 50,
     borderRadius: 80,
     justifyContent: "center",
     alignItems: "center",
@@ -172,7 +177,7 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
   },
   loginText: {
-    fontSize: 30,
+    fontSize: 20,
     fontWeight: "600",
     fontStyle: "italic",
     color: "#000",
