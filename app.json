@@ -28,7 +28,8 @@
       },
       "edgeToEdgeEnabled": true,
       "usesCleartextTraffic": true,
-      "networkSecurityConfig": "./assets/network_security_config.xml"
+      "networkSecurityConfig": "./assets/network_security_config.xml",
+      "package": "com.hajunbaek.santaapp"
     },
     "web": {
       "bundler": "metro",

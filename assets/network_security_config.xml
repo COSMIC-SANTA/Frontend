@@ -1,10 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
+    <!-- 개발 편의를 위해 모든 도메인에 대해 HTTP(클리어텍스트) 허용 -->
+    <base-config cleartextTrafficPermitted="true" />
+
+    <!-- 필요 시 특정 도메인만 명시적으로 허용하려면 아래 블록을 유지/수정하세요 -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">localhost</domain>
+        <!-- Android 에뮬레이터에서 호스트 머신 접근 -->
         <domain includeSubdomains="true">10.0.2.2</domain>
+        <!-- Genymotion 등 다른 에뮬레이터 -->
         <domain includeSubdomains="true">10.0.3.2</domain>
         <domain includeSubdomains="true">127.0.0.1</domain>
+        <!-- 예시: 로컬 네트워크 대역. 실제 서버 IP에 맞춰 조정 가능 -->
         <domain includeSubdomains="true">192.168.1.1</domain>
         <domain includeSubdomains="true">192.168.0.1</domain>
     </domain-config>
