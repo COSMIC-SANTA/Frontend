@@ -1,5 +1,6 @@
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
+import { loginService } from "@/services/api";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -41,42 +42,20 @@ export default function LoginScreen() {
       return;
     }
 
-    const requestData = {
-      username: username.trim(),
-      password: password.trim(),
-    };
-
-    console.log("🚀 로그인 요청 데이터:", {
-      username: requestData.username,
-      password: "[보안상 숨김]"
-    });
-
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8080/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        body: JSON.stringify(requestData),
-      });
+      const result = await loginService.login(username, password);
+      if (result.success) {
+        console.log("로그인 성공:", result);
 
-      console.log(`📡 응답 상태: ${response.status} ${response.statusText}`);
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log("✅ 로그인 응답 성공:", result);
-
-        // LoginResponseDTO 구조 확인 - token을 받아옴
+        // LoginResponseDTO 구조
         if (result.data && result.data.token) {
           const token = result.data.token;
-          console.log("🔑 받은 토큰:", token.substring(0, 20) + "...");
+          console.log("받은 토큰:", token.substring(0, 20) + "...")
 
-          // 토큰을 저장 (추후 AsyncStorage 등으로 개선 가능)
-          // AsyncStorage.setItem('authToken', token);
-
+        // 토큰을 저장 (추후 AsyncStorage 등으로 개선 가능)
+        // AsyncStorage.setItem('autoToken', token);
           Alert.alert(
             "로그인 성공",
             `환영합니다, ${username}님!`,
@@ -97,53 +76,14 @@ export default function LoginScreen() {
         }
       } else {
         // 에러 응답 처리
-        const errorText = await response.text();
-        console.log(`❌ HTTP ${response.status} 에러:`, errorText);
-
-        let errorMessage = "로그인에 실패했습니다.";
-        
-        try {
-          const errorData = JSON.parse(errorText);
-          if (errorData.message) {
-            errorMessage = errorData.message;
-          }
-          console.log("🔍 파싱된 에러 데이터:", errorData);
-        } catch (_parseError) {
-          console.log("🔍 에러 응답 파싱 실패, 원본 텍스트:", errorText);
-        }
-
-        if (response.status === 401) {
-          errorMessage = "사용자명 또는 비밀번호가 올바르지 않습니다.";
-        } else if (response.status === 403) {
-          errorMessage = "계정이 비활성화되었습니다.";
-        } else if (response.status === 404) {
-          errorMessage = "존재하지 않는 계정입니다.";
-        } else if (response.status === 500) {
-          errorMessage = "서버에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.";
-        }
-
-        Alert.alert("로그인 실패", errorMessage);
+        Alert.alert("로그인 실패", result.error);
       }
-    } catch (error) {
-      console.log("💥 네트워크 에러:", error);
-      console.log("🔍 에러 상세:", {
-        name: error.name,
-        message: error.message,
-      });
-
-      let errorMessage = "네트워크 연결에 문제가 발생했습니다.";
-      
-      if (error.message.includes("Network request failed")) {
-        errorMessage = "서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인해주세요.";
-      } else if (error.message.includes("timeout")) {
-        errorMessage = "요청 시간이 초과되었습니다. 다시 시도해주세요.";
-      }
-
-      Alert.alert("연결 오류", errorMessage);
+     } catch (error) {
+      console.log("예상치 못한 에러:", error);
     } finally {
       setIsLoading(false);
       console.log("=== 로그인 종료 ===");
-    }
+    };
   };
 
   const themeColors = Colors[colorScheme ?? "light"];
