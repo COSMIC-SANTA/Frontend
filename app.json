@@ -29,7 +29,7 @@
       "edgeToEdgeEnabled": true,
       "usesCleartextTraffic": true,
       "networkSecurityConfig": "./assets/network_security_config.xml",
-      "package": "com.hajunbaek.santaapp"
+      "package": "com.santaapp"
     },
     "web": {
       "bundler": "metro",

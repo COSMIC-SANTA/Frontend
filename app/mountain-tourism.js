@@ -2,34 +2,51 @@ import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { tourismService } from "@/services/api";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Image,
-  ScrollView,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 export default function MountainTourismScreen() {
   const router = useRouter();
-  const { mountainId } = useLocalSearchParams();
+  const { location, pageNo } = useLocalSearchParams();
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? "light"];
   const [selectedSpots, setSelectedSpots] = useState([]);
   const [tourismData, setTourismData] = useState(null);
+  const [touristSpots, setTouristSpots] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false); // 추가 로딩 상태
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(parseInt(pageNo) || 1);
+  const [hasMoreData, setHasMoreData] = useState(true); // 더 불러올 데이터가 있는지
 
   useEffect(() => {
-    const loadData = async () => {
+    loadInitialData();
+  }, [location]);
+
+  const loadInitialData = async () => {
       try {
         setLoading(true);
+        setCurrentPage(1);
         // 선택된 산에 따라 다른 JSON 파일 로드
-        const data = await tourismService.getTouristSpots(mountainId);
-        setTourismData(data);
+        const result = await tourismService.getTouristSpots(location, 1);
+
+        if (result.success) {
+          setTourismData(result.data);
+          setTouristSpots(result.data?.touristSpots || []);
+          setHasMoreData((result.data?.touristSpots || []).length > 0);
+        } else {
+          Alert.alert("오류", result.error);
+        }
       } catch (error) {
         Alert.alert("오류", "관광 정보를 불러오는데 실패했습니다.");
         console.error("관광 정보 로드 실패:", error);
@@ -38,8 +55,38 @@ export default function MountainTourismScreen() {
       }
     };
 
-    loadData();
-  }, [mountainId]);
+    const loadMoreData = async () => {
+      if (loadingMore || !hasMoreData) return;
+
+      try {
+        setLoadingMore(true);
+        const nextPage = currentPage + 1;
+        const result = await tourismService.getTouristSpots(location, nextPage);
+
+        if (result.success) {
+          const newSpots = result.data?.touristSpots || [];
+          if (newSpots.length > 0) {
+            setTouristSpots(prev => [...prev, ...newSpots]);
+            setCurrentPage(nextPage);
+          } else {
+            setHasMoreData(false); // 더 이상 데이터가 없음
+          }
+        } else {
+          Alert.alert("오류", result.error);
+        }
+      } catch (error) {
+        console.error("추가 데이터 로드 실패:", error);
+      } finally {
+        setLoadingMore(false);
+      }
+    };
+
+    const onRefresh = useCallback(async () => {
+      setRefreshing(true);
+      setHasMoreData(true);
+      await loadInitialData();
+      setRefreshing(false);
+    }, [location]);
 
   const getCategoryIcon = (category) => {
     switch (category) {
@@ -98,7 +145,7 @@ export default function MountainTourismScreen() {
     router.push("/optimal-route");
   };
 
-  const renderSpotCard = (spot) => {
+  const renderSpotCard = ({item: spot}) => {
     const isSelected = selectedSpots.find((s) => s.id === spot.id);
     const categoryColor = getCategoryColor(spot.category);
 
@@ -167,20 +214,33 @@ export default function MountainTourismScreen() {
     );
   };
 
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color="#0A5011" />
+        <Text style={[styles.footerText, {color: themeColors.text}]}>
+          관광정보 가져오는 중...
+        </Text>
+      </View>
+    );
+  };
+
+  const renderHeader = () => (
+    <View style={[styles.header, {backgroundColor: "#0A5011"}]}>
+      <Text style={styles.headerTitle}>
+        {tourismData?.mountain?.name || location}
+      </Text>
+      <Text style={styles.headerSubtitle}>
+        {tourismData?.mountain?.description || "산 주변 관광 스팟 추천"}
+      </Text>
+    </View>
+  );
+
   return (
     <View
       style={[styles.container, { backgroundColor: themeColors.background }]}
     >
-      {/* 헤더 */}
-      <View style={[styles.header, { backgroundColor: "#4CAF50" }]}>
-        <Text style={styles.headerTitle}>
-          🏔️ {tourismData?.mountain?.name || "지리산"}
-        </Text>
-        <Text style={styles.headerSubtitle}>
-          {tourismData?.mountain?.description || "산 주변 관광 스팟 추천"}
-        </Text>
-      </View>
-
       {/* 로딩 상태 */}
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -191,27 +251,25 @@ export default function MountainTourismScreen() {
         </View>
       ) : (
         <>
-          {/* 선택된 스팟 카운터 */}
-          <View
-            style={[
-              styles.counterContainer,
-              { backgroundColor: themeColors.card },
-            ]}
-          >
-            <Text style={[styles.counterText, { color: themeColors.text }]}>
-              선택된 스팟: {selectedSpots.length}개
-            </Text>
-          </View>
-
-          {/* 관광 스팟 리스트 */}
-          <ScrollView
-            style={styles.scrollView}
+          {/* FlatList로 페이지네이션 구현 */}
+          <FlatList
+            data={touristSpots}
+            renderItem={renderSpotCard}
+            keyExtractor={(item) => item.id.toString()}
+            ListHeaderComponent={renderHeader}
+            ListFooterComponent={renderFooter}
+            onEndReached={loadMoreData}
+            onEndReachedThreshold={0.1}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={["#4CAF50"]}
+              />
+            }
             showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.spotsContainer}>
-              {tourismData?.touristSpots?.map(renderSpotCard)}
-            </View>
-          </ScrollView>
+            contentContainerStyle={styles.flatListContent}
+          />
 
           {/* 하단 액션 버튼들 */}
           <View
@@ -285,6 +343,17 @@ const styles = StyleSheet.create({
   counterText: {
     fontSize: 16,
     fontWeight: "600",
+  },
+  flatListContent: {
+    paddingBottom: 100,
+  },
+  footerLoader: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  footerText: {
+    marginTop: 10,
+    fontSize: 14,
   },
   scrollView: {
     flex: 1,

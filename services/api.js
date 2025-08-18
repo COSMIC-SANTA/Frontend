@@ -112,4 +112,44 @@ if (error.response) {
   },
 };
 
+// 여행 목록 소개
+
+export const tourismService = {
+    getTouristSpots: async (location, pageNo = 1, {signal} = {}) => {
+      try {
+        const response = await apiClient.get(`/api/mountains/${location}/${pageNo}`, {
+          signal,
+        });
+      console.log(`${location} 관광지 정보 (페이지 ${pageNo})`, response);
+      return {
+        success: true,
+        data: response.data,
+        message: response.message,
+        currentPage: pageNo,
+      };
+    } catch (error) {
+      console.log("관광지 정보 로드 에러:", error);
+
+      if (error.response) {
+        console.log(`HTTP ${error.response.status} 에러: `, error.response.data);
+        return {
+          success: false,
+          error: error.response.data?.message || "관광지 정보를 불러오는데 실패",
+          status: error.response.status,
+        };
+      } else if (error.request) {
+        return {
+          success: false,
+          error: "서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.",
+        };
+      } else {
+        return {
+          success: false,
+          error: "요청 처리 중 오류가 발생했습니다.",
+        };
+      }
+    }
+  },
+};
+
 export default apiClient;
