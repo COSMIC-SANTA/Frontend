@@ -70,7 +70,7 @@ export default function MainScreen() {
 
   const renderCard = ({ item }) => (
     <View style={styles.cardWrapper}>
-      <TouchableOpacity style={styles.card} onPress={() => router.replace(`/mountain-tourism?location=${encodeURIComponent(item.name)}&pageNo=1`)}>
+      <TouchableOpacity style={styles.card} onPress={() => console.log(item.name)}>
         <Image
           source={item.image ? { uri: item.image } : require("../assets/images/namelessmountain.png")}
           style={styles.mountainImage}

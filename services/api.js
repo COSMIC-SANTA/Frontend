@@ -1,7 +1,14 @@
 // services/api.js
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:8080";
+// 에뮬레이터/실기기에 따른 API URL 설정
+const getApiUrl = () => {
+  // 실제 서버 주소 사용
+  return 'http://api-santa.com';
+};
+
+const API_BASE_URL = getApiUrl();
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -9,16 +16,50 @@ const apiClient = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// 응답 인터셉터: 항상 { message, data } 형태로 반환
+// 요청 인터셉터: 토큰이 있으면 Authorization 헤더에 추가
+/*apiClient.interceptors.request.use(
+  async (config) => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+        console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url} - 토큰 포함됨`);
+      } else {
+        console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url} - 토큰 없음`);
+      }
+      console.log(`[API Request] Full URL: ${config.baseURL}${config.url}`);
+    } catch (error) {
+      console.log("토큰 조회 실패:", error);
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);*/
+
+// 응답 인터셉터: 디버깅을 위해 원본 응답 반환 + 401 처리
 apiClient.interceptors.response.use(
   (res) => {
-    // res.data = { message, data: {...} }
-    return {
-      message: res.data?.message ?? null,
-      data: res.data?.data ?? null,
-    };
+    console.log(`[API Response] ${res.status} ${res.config.method?.toUpperCase()} ${res.config.url}`);
+    console.log(`[API Response] 원본 data:`, res.data);
+    
+    // 디버깅을 위해 원본 응답 그대로 반환
+    return res.data;
   },
-  (err) => Promise.reject(err)
+  async (err) => {
+    console.log(`[API Error] ${err.response?.status || 'Network'} ${err.config?.method?.toUpperCase()} ${err.config?.url}`);
+    console.log(`[API Error] Details:`, err.response?.data || err.message);
+    
+    // 401 Unauthorized 시 토큰 삭제 (자동 로그아웃)
+    if (err.response?.status === 401) {
+      try {
+        await AsyncStorage.removeItem('authToken');
+        console.log("인증 만료로 토큰 삭제");
+      } catch (error) {
+        console.log("토큰 삭제 실패:", error);
+      }
+    }
+    return Promise.reject(err);
+  }
 );
 
 export const mountainService = {
@@ -46,68 +87,31 @@ export const loginService = {
         password: password.trim(),
       };
 
-    const response = await apiClient.post("/api/auth/login", requestData);
-    console.log("로그인 응답 성공", response);
+      console.log("로그인 요청 데이터:", requestData);
+      console.log("요청 URL:", `${API_BASE_URL}/api/auth/login`);
+      
+      const response = await apiClient.post("/api/auth/login", requestData);
+      console.log("로그인 응답 (원본):", response);
+
+      const jsonPart = response.substring(0, response.indexOf("}") + 1);
+      const jsonData = JSON.parse(jsonPart);
+
+      const tokenMatch = response.match(/accessToken(.+)/);
+      const token = tokenMatch ? tokenMatch[1].trim() : null;
+
+    if (token) {
+      document.cookie = `accessToken=${token}; path=/; secure; samesite=strict`;
+      console.log("저장된 토큰:", token);
+    } else {
+      console.error("토큰을 찾을 수 없습니다.");
+    }
 
     return {
-      success: true,
-      data: response.data,
-      message: response.message,
+      message: jsonData.message,
+      accessToken: token
     };
     } catch (error) {
-      console.log("login error:", error);
-        let errorMessage = "로그인에 실패했습니다.";
-
-if (error.response) {
-        // 서버가 응답을 반환했지만 에러 상태코드
-        const { status, data } = error.response;
-        console.log(`HTTP ${status} 에러:`, data);
-
-        let errorMessage = "로그인에 실패했습니다.";
-
-        // 기존 코드와 동일한 에러 메시지 처리
-        if (status === 401) {
-          errorMessage = "사용자명 또는 비밀번호가 올바르지 않습니다.";
-        } else if (status === 403) {
-          errorMessage = "계정이 비활성화되었습니다.";
-        } else if (status === 404) {
-          errorMessage = "존재하지 않는 계정입니다.";
-        } else if (status === 500) {
-          errorMessage = "서버에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.";
-        }
-
-        // 서버에서 보낸 메시지가 있으면 우선 사용
-        if (data?.message) {
-          errorMessage = data.message;
-        }
-
-        return {
-          success: false,
-          error: errorMessage,
-          status: status,
-        };
-      } else if (error.request) {
-        console.log("Network error:", error.message);
-
-        let errorMessage = "네트워크 연결 문제 발생";
-
-        if (error.message.includes("Network Error") || error.message.includes("timeout")) {
-          errorMessage = "서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인요망";
-        } else if (error.code === 'ECONNABORTED') {
-          errorMessage = "요청 시간이 초과되었습니다. 다시 시도해주세요.";
-        }
-
-        return {
-          success: false,
-          error: errorMessage,
-        };
-      } else {
-        console.log("요청 설정 에러:", error.message);
-        return {
-          success: false,
-          error: "요청 처리 중 오류가 발생했습니다",
-        };
-      }
+          console.error("로그인 실패:", error);
     }
   },
 };
@@ -115,14 +119,47 @@ if (error.response) {
 // 여행 목록 소개
 
 export const tourismService = {
-    getTouristSpots: async (location, pageNo = 1, {signal} = {}) => {
-      try {
-        const response = await apiClient.get(`/api/mountains/${location}/${pageNo}`, {
-          signal,
-        });
+  /**
+   * 배너 카드 클릭 기록/조회
+   * POST /api/main/banner/click
+   * body: { mountainName: string }
+   * 반환: apiClient 인터셉터 구조 { message, data }
+   */
+  clickBanner: async (mountainName) => {
+    try {
+      const response = await apiClient.post("/api/main/banner/click", { mountainName });
+      // 인터셉터에 의해 { message, data } 형태
+      console.log("[tourismService.clickBanner] 성공:", response);
+      return {
+        data: response.data,
+        message: response.message,
+      };
+    } catch (error) {
+      console.log("[tourismService.clickBanner] 에러:", error);
+      if (error.response) {
+        const { status, data } = error.response;
+        return {
+          error: data?.message || "배너 클릭 요청 실패",
+          status,
+        };
+      } else if (error.request) {
+        return {
+          error: "서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.",
+        };
+      } else {
+        return {
+          error: "요청 처리 중 오류가 발생했습니다.",
+        };
+      }
+    }
+  },
+
+  // (참고) 이전 GET API는 유지하되 사용 자제 권장
+  getTouristSpots: async (location, pageNo = 1, { signal } = {}) => {
+    try {
+      const response = await apiClient.get(`/api/mountains/${location}/${pageNo}`, { signal });
       console.log(`${location} 관광지 정보 (페이지 ${pageNo})`, response);
       return {
-        success: true,
         data: response.data,
         message: response.message,
         currentPage: pageNo,
@@ -133,18 +170,15 @@ export const tourismService = {
       if (error.response) {
         console.log(`HTTP ${error.response.status} 에러: `, error.response.data);
         return {
-          success: false,
           error: error.response.data?.message || "관광지 정보를 불러오는데 실패",
           status: error.response.status,
         };
       } else if (error.request) {
         return {
-          success: false,
           error: "서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.",
         };
       } else {
         return {
-          success: false,
           error: "요청 처리 중 오류가 발생했습니다.",
         };
       }

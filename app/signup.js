@@ -61,7 +61,7 @@ export default function SignupScreen() {
         setIsLoading(true);
 
         try {
-            const response = await fetch("http://localhost:8080/api/auth/sign-up", {
+            const response = await fetch("http://api-santa.com/api/auth/sign-up", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

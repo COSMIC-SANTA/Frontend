@@ -12,7 +12,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 export default function LoginScreen() {
@@ -46,39 +46,14 @@ export default function LoginScreen() {
 
     try {
       const result = await loginService.login(username, password);
-      if (result.success) {
-        console.log("로그인 성공:", result);
+      
+      console.log("=== 로그인 결과 ===");
+      console.log("메시지:", result);
 
-        // LoginResponseDTO 구조
-        if (result.data && result.data.token) {
-          const token = result.data.token;
-          console.log("받은 토큰:", token.substring(0, 20) + "...")
-
-        // 토큰을 저장 (추후 AsyncStorage 등으로 개선 가능)
-        // AsyncStorage.setItem('autoToken', token);
-          Alert.alert(
-            "로그인 성공",
-            `환영합니다, ${username}님!`,
-            [
-              {
-                text: "확인",
-                onPress: () => {
-                  console.log("🏔️ spain 페이지로 이동");
-                  router.replace("/spain");
-                },
-              },
-            ]
-          );
-        } else {
-          console.log("⚠️ 토큰이 응답에 없음:", result);
-          Alert.alert("알림", "로그인은 완료되었지만 인증 토큰을 받지 못했습니다.");
-          router.replace("/spain");
-        }
-      } else {
-        // 에러 응답 처리
-        Alert.alert("로그인 실패", result.error);
+      if (result.accessToken) {
+        router.navigate("/spain");
       }
-     } catch (error) {
+    } catch (error) {
       console.log("예상치 못한 에러:", error);
     } finally {
       setIsLoading(false);
