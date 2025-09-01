@@ -1,10 +1,10 @@
 // MainScreen.js
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Dimensions, FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Animated, Dimensions, Easing, FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Line from "../assets/images/Line_1.svg";
-import { mountainService } from "../services/api";
+import { mountainService, tourismService } from "../services/api";
 import BottomNavBar from "./s_navigationbar";
 import WeatherBox from "./s_weather";
 
@@ -39,6 +39,17 @@ export default function MainScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+    const [clickedMap, setClickedMap] = useState({});
+
+    const animValuesRef = useRef({});
+
+    const getAnimValue = (id) => {
+    if (!animValuesRef.current[id]) {
+      animValuesRef.current[id] = new Animated.Value(0); // 0 = 이미지 보임, 1 = 콘텐츠 보임
+    }
+    return animValuesRef.current[id];
+  };
+
   // 카테고리 변경 시 API 호출
   useEffect(() => {
     const controller = new AbortController();
@@ -68,9 +79,52 @@ export default function MainScreen() {
     router.push(`/${screen}`);
   };
 
+  const handleCardPress = async (item) => {
+    const id = item.id;
+    const anim = getAnimValue(id);
+
+    if (clickedMap[id]?.clicked) {
+      Animated.timing(anim, {
+        toValue: 0,
+        duration: 260,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start(() => {
+        setClickedMap((prev) => {
+          const copy = {...prev};
+          delete copy[id];
+          return copy
+        });
+      });
+      return;
+    }
+        try {
+      // (옵션) 로딩 UI 추가하려면 여기에 상태 설정
+      const res = await tourismService.clickBanner(item.name);
+      // res: { data, message } 형태로 반환되도록 구현되어 있음
+      const info = res?.data ?? { message: res?.message ?? "clicked" };
+
+      // 상태 저장 후 보여주는 애니메이션 실행
+      setClickedMap((prev) => ({
+        ...prev,
+        [id]: { clicked: true, info },
+      }));
+
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 300,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    } catch (err) {
+      console.log("clickBanner 에러:", err);
+      // 실패 시 사용자에게 토스트나 간단한 알림을 추가해도 좋습니다.
+    }
+  };
+
   const renderCard = ({ item }) => (
     <View style={styles.cardWrapper}>
-      <TouchableOpacity style={styles.card} onPress={() => console.log(item.name)}>
+      <TouchableOpacity style={styles.card} onPress={() => console.log(item.name, item.image)}>
         <Image
           source={item.image ? { uri: item.image } : require("../assets/images/namelessmountain.png")}
           style={styles.mountainImage}

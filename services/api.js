@@ -76,7 +76,7 @@ export const mountainService = {
     return list.map((m) => ({
       id: String(m.id),
       name: m.name,
-      image: m.imageUrl || null,
+      image: m.image_url || null,
     }));
   },
 };
@@ -105,7 +105,13 @@ export const loginService = {
       // AsyncStorage에 토큰 저장 (인터셉터에서 사용)
       await AsyncStorage.setItem('authToken', token);
       // 쿠키에도 저장 (기존 코드)
-      document.cookie = `accessToken=${token}; path=/; secure; samesite=strict`;
+      if (typeof document !== "undefined" && document?.cookie !== undefined) {
+          try {
+            document.cookie = `accessToken=${token}; path=/; secure; samesite=strict`;
+          } catch (e) {
+            console.warn("브라우저 쿠키 저장 실패:", e);
+          }
+        }
       console.log("저장된 토큰:", token);
     } else {
       console.error("토큰을 찾을 수 없습니다.");
