@@ -17,12 +17,14 @@ const apiClient = axios.create({
 });
 
 // 요청 인터셉터: 토큰이 있으면 Authorization 헤더에 추가
-/*apiClient.interceptors.request.use(
+apiClient.interceptors.request.use(
   async (config) => {
     try {
+      await AsyncStorage.removeItem('authToken');
       const token = await AsyncStorage.getItem('authToken');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+        console.log(`test ${token}`);
         console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url} - 토큰 포함됨`);
       } else {
         console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url} - 토큰 없음`);
@@ -34,7 +36,7 @@ const apiClient = axios.create({
     return config;
   },
   (error) => Promise.reject(error)
-);*/
+);
 
 // 응답 인터셉터: 디버깅을 위해 원본 응답 반환 + 401 처리
 apiClient.interceptors.response.use(
@@ -100,6 +102,9 @@ export const loginService = {
       const token = tokenMatch ? tokenMatch[1].trim() : null;
 
     if (token) {
+      // AsyncStorage에 토큰 저장 (인터셉터에서 사용)
+      await AsyncStorage.setItem('authToken', token);
+      // 쿠키에도 저장 (기존 코드)
       document.cookie = `accessToken=${token}; path=/; secure; samesite=strict`;
       console.log("저장된 토큰:", token);
     } else {
@@ -119,6 +124,44 @@ export const loginService = {
 // 여행 목록 소개
 
 export const tourismService = {
+  /**
+   * DB에 산 데이터 저장 (관리자용)
+   * GET /api/main/saveMountainsFromApi
+   * 반환: 성공/실패 메시지
+   */
+  saveMountainsFromApi: async () => {
+    try {
+      console.log("[tourismService.saveMountainsFromApi] 산 데이터 저장 요청 시작");
+      const response = await apiClient.get("/api/main/saveMountainsFromApi");
+      console.log("[tourismService.saveMountainsFromApi] 성공:", response);
+      return {
+        success: true,
+        message: "산 데이터가 성공적으로 저장되었습니다.",
+        data: response
+      };
+    } catch (error) {
+      console.error("[tourismService.saveMountainsFromApi] 에러:", error);
+      if (error.response) {
+        const { status, data } = error.response;
+        return {
+          success: false,
+          error: data?.message || "산 데이터 저장 실패",
+          status,
+        };
+      } else if (error.request) {
+        return {
+          success: false,
+          error: "서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.",
+        };
+      } else {
+        return {
+          success: false,
+          error: "요청 처리 중 오류가 발생했습니다.",
+        };
+      }
+    }
+  },
+
   /**
    * 배너 카드 클릭 기록/조회
    * POST /api/main/banner/click

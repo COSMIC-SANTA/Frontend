@@ -50,11 +50,19 @@ export default function LoginScreen() {
       console.log("=== 로그인 결과 ===");
       console.log("메시지:", result);
 
-      if (result.accessToken) {
+      if (result && result.accessToken) {
+        console.log("로그인 성공, 메인 화면으로 이동");
         router.navigate("/spain");
+      } else if (result && result.error) {
+        console.log("로그인 실패:", result.error);
+        Alert.alert("로그인 실패", result.error);
+      } else {
+        console.log("로그인 결과가 없거나 토큰이 없음:", result);
+        Alert.alert("로그인 실패", "로그인에 실패했습니다. 다시 시도해주세요.");
       }
     } catch (error) {
       console.log("예상치 못한 에러:", error);
+      Alert.alert("오류", "네트워크 오류가 발생했습니다.");
     } finally {
       setIsLoading(false);
       console.log("=== 로그인 종료 ===");
