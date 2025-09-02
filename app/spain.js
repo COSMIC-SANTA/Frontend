@@ -16,6 +16,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "expo-router";
 import BottomNavBar from "./s_navigationbar";
 import { mountainService, weatherService } from "../services/api";
+import {Animated, Platform} from "react-native";
+
 
 const { width } = Dimensions.get("window");
 const CATEGORIES = ["popular", "high", "low\nmountain", "activity\n(leisure)"];
@@ -34,10 +36,129 @@ const MEDALS = [
   { id: "4", title: "explore", medal: require("../assets/images/redmedal.png") },
 ];
 
+// -- 코드 작업중 ------
+function BannerCard({ item }) {
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [detail, setDetail] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  // 카드 크기는 기존 UI와 동일하게 유지
+  const CARD_W = 200;
+  const CARD_H = 300;
+
+  const rotate = useMemo(() => new Animated.Value(0), []);
+  const frontInterpolate = rotate.interpolate({
+    inputRange: [0, 180],
+    outputRange: ["0deg", "180deg"],
+  });
+  const backInterpolate = rotate.interpolate({
+    inputRange: [0, 180],
+    outputRange: ["180deg", "360deg"],
+  });
+
+  const flipTo = (deg) => {
+    Animated.spring(rotate, {
+      toValue: deg,
+      useNativeDriver: true,
+      friction: 8,
+      tension: 12,
+    }).start();
+  };
+
+  const loadDetail = async () => {
+    if (detail || loading) return;
+    setLoading(true);
+    setErr("");
+    try {
+      // item.name을 request로 사용 (기존 리스트 데이터 형식 유지)
+      const data = await mountainService.fetchDetailByName(item.name);
+      // 기대 응답:
+      // { mountainName, mountainAddress, high, mntidetails, mntitop }
+      setDetail(data);
+    } catch (e) {
+      setErr(e.message || "상세 정보를 가져오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onPress = async () => {
+    if (!isFlipped) {
+      await loadDetail();   // 처음 뒤집힐 때만 요청
+      setIsFlipped(true);
+      flipTo(180);
+    } else {
+      setIsFlipped(false);
+      flipTo(0);
+    }
+  };
+
+  return (
+    <View style={styles.cardWrapper}>
+      <TouchableOpacity style={[styles.card, { width: CARD_W, height: CARD_H }]} onPress={onPress} activeOpacity={0.9}>
+        {/* 앞면 */}
+        <Animated.View
+          style={[
+            styles.flipFront,
+            { width: CARD_W, height: CARD_H, transform: [{ rotateY: frontInterpolate }] },
+          ]}
+        >
+          <Image
+            source={item.image ? { uri: item.image } : require("../assets/images/namelessmountain.png")}
+            style={styles.mountainImage}
+          />
+        </Animated.View>
+
+        {/* 뒷면 */}
+        <Animated.View
+          style={[
+            styles.flipBack,
+            { width: CARD_W, height: CARD_H, transform: [{ rotateY: backInterpolate }] },
+          ]}
+        >
+          {loading ? (
+            <ActivityIndicator size="large" />
+          ) : err ? (
+            <View style={{ alignItems: "center" }}>
+              <Text style={{ color: "#C43D3D", marginBottom: 8 }}>{err}</Text>
+              <TouchableOpacity onPress={loadDetail} style={styles.retryBtn}>
+                <Text style={{ color: "#fff", fontWeight: "700" }}>다시 시도</Text>
+              </TouchableOpacity>
+            </View>
+          ) : detail ? (
+            <View>
+              <Text style={styles.backTitle}>{detail.mountainName || item.name}</Text>
+              {detail.mountainAddress ? (
+                <Text style={styles.backSub}>{detail.mountainAddress}</Text>
+              ) : null}
+              {detail.high ? (
+                <Text style={styles.backMeta}>고도: {detail.high}</Text>
+              ) : null}
+              {detail.mntidetails ? (
+                <Text style={styles.backBody} numberOfLines={5}>{detail.mntidetails}</Text>
+              ) : null}
+              {detail.mntitop ? (
+                <Text style={styles.backFoot} numberOfLines={2}>대표 봉우리: {detail.mntitop}</Text>
+              ) : null}
+            </View>
+          ) : (
+            <Text style={{ color: "#000" }}>상세 정보가 없습니다.</Text>
+          )}
+        </Animated.View>
+      </TouchableOpacity>
+
+      {/* 기존 캡션 스타일 유지 */}
+      <Text style={styles.cardText}>{item.name}</Text>
+    </View>
+  );
+}
+
+// -----------------코드 작업중 --------
+
 export default function MainScreen() {
   const router = useRouter();
 
-  // --- 배너 카테고리 & 데이터 ---
   const [selectedCategory, setSelectedCategory] = useState("high");
   const interestEnum = useMemo(() => INTEREST_ENUM[selectedCategory], [selectedCategory]);
 
@@ -137,17 +258,20 @@ export default function MainScreen() {
     }
   };
 
-  const renderCard = ({ item }) => (
-    <View style={styles.cardWrapper}>
-      <TouchableOpacity style={styles.card} onPress={() => console.log("Pressed", item.name)}>
-        <Image
-          source={item.image ? { uri: item.image } : require("../assets/images/namelessmountain.png")}
-          style={styles.mountainImage}
-        />
-      </TouchableOpacity>
-      <Text style={styles.cardText}>{item.name}</Text>
-    </View>
-  );
+  // const renderCard = ({ item }) => (
+  //   <View style={styles.cardWrapper}>
+  //     <TouchableOpacity style={styles.card} onPress={() => console.log("Pressed", item.name)}>
+  //       <Image
+  //         source={item.image ? { uri: item.image } : require("../assets/images/namelessmountain.png")}
+  //         style={styles.mountainImage}
+  //       />
+  //     </TouchableOpacity>
+  //     <Text style={styles.cardText}>{item.name}</Text>
+  //   </View>
+  // );
+
+  const renderCard = ({ item }) => <BannerCard item={item} />;
+
 
   const weatherLabel = (code) => {
     if (!code) return "-";
@@ -475,6 +599,37 @@ const styles = StyleSheet.create({
     color: "#000",
     textTransform: "lowercase",
   },
+
+    // --- flip front/back (기존 카드 스타일 최대한 유지) ---
+    flipFront: {
+      backfaceVisibility: "hidden",
+      borderRadius: 20,
+      overflow: "hidden",
+    },
+    flipBack: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      backfaceVisibility: "hidden",
+      borderRadius: 20,
+      overflow: "hidden",
+      padding: 12,
+      backgroundColor: "#fff", // 기존 카드 배경톤 유지
+      justifyContent: "center",
+      alignItems: "flex-start",
+    },
+    retryBtn: {
+      backgroundColor: "#5C7145",
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 10,
+    },
+    backTitle: { fontSize: 16, fontWeight: "800", color: "#000", marginBottom: 6 },
+    backSub: { fontSize: 12, color: "#666", marginBottom: 6 },
+    backMeta: { fontSize: 12, color: "#333", marginBottom: 6 },
+    backBody: { fontSize: 12, color: "#000", lineHeight: 18 },
+    backFoot: { fontSize: 12, color: "#000", marginTop: 8 },
+  
 
   // --- 날씨 영역 ---
   weatherSection: { marginTop: 24, paddingHorizontal: 20 },

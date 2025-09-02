@@ -23,7 +23,7 @@ apiClient.interceptors.response.use(
   (err) => Promise.reject(err)
 );
 
-  // 배너: 관심사별 산 목록
+  // 1. 배너: 관심사별 산 목록
 export const mountainService = {
   fetchByInterest: async (interest, { signal } = {}) => {
     const res = await apiClient.get("/api/main/banner", {
@@ -39,9 +39,21 @@ export const mountainService = {
       image: m.imageUrl || null,
     }));
   },
+  
+  //해당부분 작업중 (^-^)-------*
+  async fetchDetailByName(mountainName, { signal } = {}) {
+    return apiClient.post(
+      "/api/main/banner/click",
+      { mountainName },
+      { signal }
+    );
+  },
+// -------------------
+
 };
 
-//산이름 검색해서 좌표알아내고 날씨정보 받는 api 요청
+
+//2. 산이름 검색해서 좌표알아내고 날씨정보 받는 api 요청
 export const weatherService = {
   // ① 산 이름 검색 → 후보 리스트
   searchMountainsByName: async (mountainName, { signal } = {}) => {
@@ -74,9 +86,7 @@ getCurrentWeather: async ({ mapX, mapY }, { signal } = {}) => {
 },
 };
 
-  // 주변 편의시설 조회
-
-// ✅ JSON(숫자)로 POST + 실패 시 form-urlencoded로 한 번 더 시도
+// 3. 주변 편의시설 조회
 export const facilityService = {
   getNearbyFacilities: async (
     { mapX, mapY, location_x, location_y },
