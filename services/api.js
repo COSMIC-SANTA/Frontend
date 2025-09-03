@@ -13,11 +13,17 @@ const API_BASE_URL = getApiUrl();
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
+  headers: { "Content-Type": "application/x-www-form-urlencoded" },
+});
+
+const apiClientJson = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
   headers: { "Content-Type": "application/json" },
 });
 
 // 요청 인터셉터: 토큰이 있으면 Authorization 헤더에 추가
-apiClient.interceptors.request.use(
+apiClientJson.interceptors.request.use(
   async (config) => {
     try {
       await AsyncStorage.removeItem('authToken');
@@ -77,6 +83,7 @@ export const mountainService = {
       id: String(m.id),
       name: m.name,
       image: m.image_url || null,
+      activity: m.difficulty
     }));
   },
 };
@@ -92,37 +99,42 @@ export const loginService = {
       console.log("로그인 요청 데이터:", requestData);
       console.log("요청 URL:", `${API_BASE_URL}/api/auth/login`);
       
-      const response = await apiClient.post("/api/auth/login", requestData);
+      const response = await apiClientJson.post("/api/auth/login", requestData);
       console.log("로그인 응답 (원본):", response);
 
-      const jsonPart = response.substring(0, response.indexOf("}") + 1);
-      const jsonData = JSON.parse(jsonPart);
+      const jsonData = typeof response.data === "string" 
+        ? JSON.parse(response.data) 
+        : response.data;
 
-      const tokenMatch = response.match(/accessToken(.+)/);
-      const token = tokenMatch ? tokenMatch[1].trim() : null;
+      // 문제가 있던 부분 - response 대신 response.data를 사용해야 함
+      // const tokenMatch = response.match(/accessToken(.+)/); // ❌ 잘못된 코드
+      
+      // 수정된 코드: JSON 응답에서 직접 accessToken을 추출
+      const token = jsonData.accessToken || null;
 
-    if (token) {
-      // AsyncStorage에 토큰 저장 (인터셉터에서 사용)
-      await AsyncStorage.setItem('authToken', token);
-      // 쿠키에도 저장 (기존 코드)
-      if (typeof document !== "undefined" && document?.cookie !== undefined) {
+      if (token) {
+        // AsyncStorage에 토큰 저장 (인터셉터에서 사용)
+        await AsyncStorage.setItem('authToken', token);
+        // 쿠키에도 저장 (기존 코드)
+        if (typeof document !== "undefined" && document?.cookie !== undefined) {
           try {
             document.cookie = `accessToken=${token}; path=/; secure; samesite=strict`;
           } catch (e) {
             console.warn("브라우저 쿠키 저장 실패:", e);
           }
         }
-      console.log("저장된 토큰:", token);
-    } else {
-      console.error("토큰을 찾을 수 없습니다.");
-    }
+        console.log("저장된 토큰:", token);
+      } else {
+        console.error("토큰을 찾을 수 없습니다.");
+      }
 
-    return {
-      message: jsonData.message,
-      accessToken: token
-    };
+      return {
+        message: jsonData.message,
+        accessToken: token
+      };
     } catch (error) {
-          console.error("로그인 실패:", error);
+      console.error("로그인 실패:", error);
+      throw error; // 에러를 다시 던져서 호출하는 쪽에서 처리할 수 있도록
     }
   },
 };
@@ -176,7 +188,7 @@ export const tourismService = {
    */
   clickBanner: async (mountainName) => {
     try {
-      const response = await apiClient.post("/api/main/banner/click", { mountainName });
+      const response = await apiClient.post("/api/main/banner/click", { mountainName: mountainName });
       // 인터셉터에 의해 { message, data } 형태
       console.log("[tourismService.clickBanner] 성공:", response);
       return {
@@ -209,9 +221,10 @@ export const tourismService = {
       const response = await apiClient.get(`/api/mountains/${location}/${pageNo}`, { signal });
       console.log(`${location} 관광지 정보 (페이지 ${pageNo})`, response);
       return {
-        data: response.data,
-        message: response.message,
-        currentPage: pageNo,
+        cafeDTO: response.cafeDTO,
+        restaurantDTO: response.restaurantDTO,
+        stayDTO: response.stayDTO,
+        touristSpotDTO: response.touristSpotDTO
       };
     } catch (error) {
       console.log("관광지 정보 로드 에러:", error);
@@ -233,6 +246,41 @@ export const tourismService = {
       }
     }
   },
+    getOptimalRoute: async (routeData) => {
+    try {
+      console.log("[tourismService.getOptimalRoute] 최적 경로 요청 시작");
+      console.log("[tourismService.getOptimalRoute] 요청 데이터:", routeData);
+      
+      const response = await apiClientJson.post("/api/mountains/optimalRoute", routeData);
+      console.log("[tourismService.getOptimalRoute] 성공:", response);
+      
+      return {
+        success: true,
+        data: response,
+        message: "최적 경로를 성공적으로 계산했습니다."
+      };
+    } catch (error) {
+      console.error("[tourismService.getOptimalRoute] 에러:", error);
+      if (error.response) {
+        const { status, data } = error.response;
+        return {
+          success: false,
+          error: data?.message || "최적 경로 계산 실패",
+          status,
+        };
+      } else if (error.request) {
+        return {
+          success: false,
+          error: "서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.",
+        };
+      } else {
+        return {
+          success: false,
+          error: "요청 처리 중 오류가 발생했습니다.",
+        };
+      }
+    }
+  },
 };
 
-export default apiClient;
+export default apiClientJson;

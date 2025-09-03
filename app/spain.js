@@ -43,11 +43,11 @@ export default function MainScreen() {
 
     const animValuesRef = useRef({});
 
-    const getAnimValue = (id) => {
-    if (!animValuesRef.current[id]) {
-      animValuesRef.current[id] = new Animated.Value(0); // 0 = 이미지 보임, 1 = 콘텐츠 보임
+    const getAnimValue = (name) => {
+    if (!animValuesRef.current[name]) {
+      animValuesRef.current[name] = new Animated.Value(0); // 0 = 이미지 보임, 1 = 콘텐츠 보임
     }
-    return animValuesRef.current[id];
+    return animValuesRef.current[name];
   };
 
   // 카테고리 변경 시 API 호출
@@ -80,10 +80,11 @@ export default function MainScreen() {
   };
 
   const handleCardPress = async (item) => {
-    const id = item.id;
-    const anim = getAnimValue(id);
+    console.log(`handleCard 부분 ${item.name}`)
+    const name = item.name;
+    const anim = getAnimValue(name);
 
-    if (clickedMap[id]?.clicked) {
+    if (clickedMap[name]?.clicked) {
       Animated.timing(anim, {
         toValue: 0,
         duration: 260,
@@ -92,13 +93,13 @@ export default function MainScreen() {
       }).start(() => {
         setClickedMap((prev) => {
           const copy = {...prev};
-          delete copy[id];
-          return copy
+          delete copy[name];
+          return copy;
         });
       });
       return;
     }
-        try {
+    try {
       // (옵션) 로딩 UI 추가하려면 여기에 상태 설정
       const res = await tourismService.clickBanner(item.name);
       // res: { data, message } 형태로 반환되도록 구현되어 있음
@@ -107,7 +108,7 @@ export default function MainScreen() {
       // 상태 저장 후 보여주는 애니메이션 실행
       setClickedMap((prev) => ({
         ...prev,
-        [id]: { clicked: true, info },
+        [name]: { clicked: true, info },
       }));
 
       Animated.timing(anim, {
@@ -124,11 +125,90 @@ export default function MainScreen() {
 
   const renderCard = ({ item }) => (
     <View style={styles.cardWrapper}>
-      <TouchableOpacity style={styles.card} onPress={() => console.log(item.name, item.image)}>
-        <Image
-          source={item.image ? { uri: item.image } : require("../assets/images/namelessmountain.png")}
-          style={styles.mountainImage}
-        />
+      <TouchableOpacity style={styles.card} onPress={() => handleCardPress(item)}>
+        <View style={styles.cardInner}>
+          <Animated.View 
+            style={[
+              styles.cardFace,
+              styles.cardFront,
+              {
+                opacity: getAnimValue(item.name).interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [1, 0, 0],
+                }),
+                transform: [{
+                  rotateY: getAnimValue(item.name).interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', '180deg'],
+                  })
+                }]
+              }
+            ]}
+          >
+            <Image
+              source={item.image ? { uri: item.image } : require("../assets/images/namelessmountain.png")}
+              style={styles.mountainImage}
+            />
+          </Animated.View>
+                    {/* 뒷면 - 산 설명 */}
+          <Animated.View 
+            style={[
+              styles.cardFace,
+              styles.cardBack,
+              {
+                opacity: getAnimValue(item.name).interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [0, 0, 1],
+                }),
+                transform: [{
+                  rotateY: getAnimValue(item.name).interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['180deg', '360deg'],
+                  })
+                }]
+              }
+            ]}
+          >
+            <ScrollView contentContainerStyle={styles.infoContainer}>
+              <Text style={styles.infoTitle}>
+                {clickedMap[item.name]?.info?.mountainName || item.name}
+              </Text>
+              
+              <Text style={styles.infoText}>
+                {clickedMap[item.name]?.info?.mntidetails || "산에 대한 정보를 불러오는 중..."}
+              </Text>
+              
+              {clickedMap[item.name]?.info?.high && (
+                <Text style={styles.infoDetail}>
+                  높이: {clickedMap[item.name].info.high}m
+                </Text>
+              )}
+              
+              {clickedMap[item.name]?.info?.mntitop && (
+                <View style={styles.infoSection}>
+                  <Text style={styles.infoSectionTitle}>특징</Text>
+                  <Text style={styles.infoSectionText}>
+                    {clickedMap[item.name].info.mntitop}
+                  </Text>
+                  </View>
+              )}
+
+              <TouchableOpacity 
+                style={styles.confirmButton}
+                onPress={() => {
+                  const location = clickedMap[item.name]?.info?.location;
+                  if (location) {
+                    router.push(`/mountain-tourism?location=${encodeURIComponent(location)}&pageNo=1`);
+                  } else {
+                    console.log("location 정보가 없습니다.");
+                  }
+                }}
+              >
+                <Text style={styles.confirmButtonText}>확인</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </Animated.View>
+          </View>
       </TouchableOpacity>
       <Text style={styles.cardText}>{item.name}</Text>
     </View>
@@ -445,6 +525,89 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     opacity: 0.5,
   },
+  cardInner: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  },
+  cardFace: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    backfaceVisibility: 'hidden',
+    borderRadius: 20,
+  },
+  cardFront: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardBack: {
+    backgroundColor: '#f8f8f8',
+    padding: 12,
+    justifyContent: 'flex-start',
+    alignItems: 'stretch',
+  },
+  infoContainer: {
+    flexGrow: 1,
+    paddingVertical: 8,
+  },
+  infoTitle: {
+    fontSize: 18,
+    fontFamily: "Snell Roundhand",
+    fontWeight: "bold",
+    color: "#325A2A",
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  infoText: {
+    fontSize: 12,
+    fontFamily: "Snell Roundhand",
+    color: "#333",
+    textAlign: 'left',
+    lineHeight: 16,
+    marginBottom: 8,
+  },
+  infoDetail: {
+    fontSize: 14,
+    fontFamily: "Snell Roundhand",
+    fontWeight: "bold",
+    color: "#325A2A",
+    textAlign: 'center',
+    marginBottom: 8,
+    backgroundColor: '#e8f5e8',
+    padding: 6,
+    borderRadius: 8,
+  },
+  infoSection: {
+    marginTop: 8,
+  },
+  infoSectionTitle: {
+    fontSize: 14,
+    fontFamily: "Snell Roundhand",
+    fontWeight: "bold",
+    color: "#325A2A",
+    marginBottom: 4,
+  },
+  infoSectionText: {
+    fontSize: 11,
+    fontFamily: "Snell Roundhand",
+    color: "#666",
+    textAlign: 'left',
+    lineHeight: 14,
+  },
+  confirmButton: {
+  backgroundColor: '#325A2A',
+  padding: 10,
+  borderRadius: 8,
+  marginTop: 10,
+  alignItems: 'center',
+},
+confirmButtonText: {
+  color: 'white',
+  fontSize: 14,
+  fontFamily: "Snell Roundhand",
+  fontWeight: "bold",
+},
   medalList: {
     paddingHorizontal: 10,
     marginBottom: -20,
