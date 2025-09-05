@@ -12,22 +12,22 @@ import {
   View
 } from "react-native";
 import { WebView } from "react-native-webview";
-import { tourismService } from "../services/api.js";
+import { mountainService, tourismService } from "../services/api.js";
 
 export default function MountainDirectionScreen() {
   const router = useRouter();
-  const { travelPlan, location } = useLocalSearchParams();
+  const { travelPlan, location, mountainName } = useLocalSearchParams();
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? "light"];
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState(null);
+  const [currentLocation, setCurrentLocation] = useState(null); // { mapX, mapY }
   const [parsedTravelPlan, setParsedTravelPlan] = useState([]);
   const [optimalRouteData, setOptimalRouteData] = useState(null);
-  const [selectedDestination, setSelectedDestination] = useState(null);
+  const [selectedDestination, setSelectedDestination] = useState(null); // { name, location, mapX?, mapY?, ... }
 
+  // 전달받은 여행계획 파싱 + 현재 위치 획득
   useEffect(() => {
-    // 전달받은 여행계획 파싱
     try {
       if (travelPlan) {
         const parsed = JSON.parse(travelPlan);
@@ -37,22 +37,49 @@ export default function MountainDirectionScreen() {
     } catch (error) {
       console.error("여행계획 파싱 실패:", error);
     }
-
     getCurrentLocation();
   }, [travelPlan]);
 
-  // 수정된 useEffect: selectedDestination이 선택된 경우에만 API 요청
   useEffect(() => {
-    if (currentLocation && parsedTravelPlan.length > 0 && selectedDestination) {
-      console.log("모든 조건이 준비됨 - API 요청 실행");
-      requestOptimalRoute();
-      console.log("카카오 Directions API 호출 실행");
-    fetchKakaoRoute(currentLocation, selectedDestination).then((route) => {
-      if (route) {
-        setSelectedRoute(route); // state에 저장
+    (async () => {
+      console.log(`산이름 ${mountainName}`);
+      const name = (mountainName ?? "").toString().trim();
+      if (!name) {
+        console.warn("[mountain XY] mountainName 없음");
+        return;
       }
-    });
-    }
+      const m = await getMountainPosition(name);
+      if (m?.position?.mapX != null && m?.position?.mapY != null) {
+        console.log(
+            `[mountain XY] ${m.name} -> x(경도): ${m.position.mapX}, y(위도): ${m.position.mapY}`
+        );
+      } else {
+        console.warn("[mountain XY] 좌표를 찾지 못했습니다.", m);
+      }
+    })();
+    // 최초 1회만
+  }, []);
+
+  // 선택된 목적지/현재위치/여행계획이 준비되면 최적경로 + Kakao Directions 호출
+  useEffect(() => {
+    (async () => {
+      if (!currentLocation || parsedTravelPlan.length === 0 || !selectedDestination) return;
+
+      // 목적지 좌표 보정(산 선택 시 좌표가 없을 수 있음)
+      let dest = await ensureDestinationHasCoords(selectedDestination);
+      if (!dest?.mapX || !dest?.mapY) {
+        console.warn("목적지 좌표 없음 - API 호출 스킵");
+        return;
+      }
+      setSelectedDestination(dest); // 좌표 반영
+
+      // 최적경로 요청
+      await requestOptimalRoute(dest);
+
+      // Kakao Directions
+      const route = await fetchKakaoRoute(currentLocation, { position: { mapX: dest.mapX, mapY: dest.mapY } });
+      if (route) setSelectedRoute(route);
+    })();
   }, [currentLocation, parsedTravelPlan, selectedDestination]);
 
   const routes = [
@@ -62,11 +89,7 @@ export default function MountainDirectionScreen() {
       cost: "245,050원",
       type: "taxi",
       description: "가장 빠른 경로",
-      steps: [
-        "출발지에서 택시 이용",
-        "목적지까지 직행",
-        "도보로 최종 목적지 도착",
-      ],
+      steps: ["출발지에서 택시 이용", "목적지까지 직행", "도보로 최종 목적지 도착"],
     },
     {
       id: 2,
@@ -74,17 +97,11 @@ export default function MountainDirectionScreen() {
       cost: "256,050원",
       type: "public",
       description: "대중교통 이용",
-      steps: [
-        "지하철 → 버스 환승",
-        "대중교통으로 목적지 이동",
-        "도보로 최종 목적지 도착",
-      ],
+      steps: ["지하철 → 버스 환승", "대중교통으로 목적지 이동", "도보로 최종 목적지 도착"],
     },
   ];
 
-  const handleRouteSelect = (route) => {
-    setSelectedRoute(route);
-  };
+  const handleRouteSelect = (route) => setSelectedRoute(route);
 
   const getCurrentLocation = async () => {
     setLoading(true);
@@ -94,13 +111,8 @@ export default function MountainDirectionScreen() {
         Alert.alert("알림", "위치 권한이 필요합니다.");
         return;
       }
-
-      const locationResult = await Location.getCurrentPositionAsync({});
-      const coords = {
-        mapX: locationResult.coords.longitude,
-        mapY: locationResult.coords.latitude
-      };
-
+      const loc = await Location.getCurrentPositionAsync({});
+      const coords = { mapX: loc.coords.longitude, mapY: loc.coords.latitude };
       setCurrentLocation(coords);
       console.log("현재 위치:", coords);
     } catch (error) {
@@ -112,36 +124,33 @@ export default function MountainDirectionScreen() {
   };
 
   // 카테고리/기존 type 값을 표준 type으로 정규화
+   // 카테고리/기존 type 값을 표준 type으로 정규화
   const mapCategoryToType = (categoryOrType, optionId) => {
     if (optionId === 'mountain') return 'mountain';
     switch (categoryOrType) {
-      case '관광지': return 'spots';
-      case '맛집': return 'restaurants';
-      case '관광시설': return 'cafes';
-      case '숙박': return 'stays';
+      case '관광지': return 'spot';
+      case '맛집': return 'restaurant';
+      case '관광시설': return 'cafe';
+      case '숙박': return 'stay';
       case 'mountain': return 'mountain';
       default:
         console.warn('알 수 없는 카테고리/타입:', categoryOrType, '→ 기본값 spot');
         return 'spot';
     }
   };
-
-  // 가능한 목적지 목록 생성 (산 + 선택된 장소들)
+  // 목적지 후보(산 + 선택 장소들)
   const getDestinationOptions = () => {
     const options = [];
-
-    // 산을 첫 번째 옵션으로 추가
     options.push({
-      id: 'mountain',
-      type: 'mountain',
-      category: '산',
-      name: location || '목적지 산',
-      location: location || '산 위치',
-      icon: '🏔️',
-      color: '#4CAF50'
+      id: "mountain",
+      type: "mountain",
+      category: "산",
+      name: mountainName || "목적지 산",
+      location: location || "산 위치",
+      icon: "🏔️",
+      color: "#4CAF50",
+      // mapX/mapY는 선택 시에 좌표 조회 후 주입
     });
-
-    // 선택된 여행 장소들 추가
     parsedTravelPlan.forEach((item, index) => {
       options.push({
         id: `place_${index}`,
@@ -170,141 +179,157 @@ export default function MountainDirectionScreen() {
             case "숙박": return "#9C27B0";
             default: return "#666";
           }
-        })()
+        })(),
       });
     });
-
     return options;
   };
 
-  const formatRouteData = () => {
-    if (!currentLocation || parsedTravelPlan.length === 0 || !selectedDestination) {
+  // 산 좌표 조회(MountainSearchResponse: { mountains: [{ mountainName, mountainAddress, position:{mapX,mapY}}] })
+  const getMountainPosition = async (name) => {
+    try {
+      const { mountains = [] } = await mountainService.fetchMountainXY(name);
+      const first = mountains[0];
+      console.log("산 이름 "+first.mountainName);
+      console.log("산 x:"+first.position?.mapX)
+      console.log("산 y:"+first.position?.mapY)
+      if (!first?.position?.mapX || !first?.position?.mapY) return null;
+      return {
+        name: first.mountainName,
+        location: first.mountainAddress,
+        position: first.position, // { mapX, mapY }
+      };
+    } catch (e) {
+      console.error("getMountainPosition 에러:", e);
+      return null;
+    }
+  };
+
+  // 목적지 좌표가 없을 때(산 선택 등) 좌표 주입
+  const ensureDestinationHasCoords = async (dest) => {
+    if (dest?.mapX != null && dest?.mapY != null) return dest;
+    const isMountain = (dest?.id === "mountain") || (dest?.type === "mountain");
+    if (isMountain && mountainName) {
+      const m = await getMountainPosition(mountainName);
+      if (m?.position) {
+        return { ...dest, mapX: m.position.mapX, mapY: m.position.mapY, location: m.location ?? dest.location };
+      }
+    }
+    return dest;
+  };
+
+  // 분류/데이터 정규화 + 최적경로 요청 페이로드 생성
+  const formatRouteData = async (finalDestination) => {
+    if (!currentLocation || parsedTravelPlan.length === 0 || !finalDestination) {
       console.log("데이터 부족:", {
         currentLocation: !!currentLocation,
         parsedTravelPlan: parsedTravelPlan.length,
-        selectedDestination: !!selectedDestination
+        selectedDestination: !!finalDestination,
       });
       return null;
     }
 
-    // 카테고리별 분류
-    const categorizedData = {
-      tourist_spots: [],
-      restaurants: [],
-      cafes: [],
-      stays: []
-    };
-
+    // 목적지 객체(표준형)
     const destination = {
-      name: selectedDestination.name,
-      location: selectedDestination.location,
-      // 선택된 옵션의 type(있다면) 또는 category를 받아 표준화. 산일 경우 mountain으로 강제.
-      type: mapCategoryToType(
-          selectedDestination.category, selectedDestination.id
-      ),
+      name: finalDestination.name,
+      location: finalDestination.location,
+      type: mapCategoryToType(finalDestination.type ?? finalDestination.category, finalDestination.id),
+      position: (finalDestination.mapX != null && finalDestination.mapY != null)
+          ? { mapX: finalDestination.mapX, mapY: finalDestination.mapY }
+          : null,
     };
 
-    if (selectedDestination.mapX != null && selectedDestination.mapY != null) {
-      const position = {
-        mapX: selectedDestination.mapX,
-        mapY: selectedDestination.mapY,
-      }
-      destination.position = position;
-    }
+// 산 정보(있으면 포함)
+let mountainObj = null;
+if (mountainName) {
+  const m = await getMountainPosition(mountainName);
+  if (m && m.name) { // ← null 체크 추가
+    mountainObj = { 
+      name: m.name,
+      location: m.location, 
+      position: m.position 
+    };
 
+  } else {
+    console.warn('getMountainPosition에서 유효한 산 정보를 받지 못했습니다:', m);
+  }
+}
+
+    // 카테고리별 분류
+    const categorized = { tourist_spots: [], restaurants: [], cafes: [], stays: [] };
     parsedTravelPlan.forEach((item) => {
-      if (selectedDestination.name === item.place.name) {
-        console.log("목적지로 선택된 장소 제외:", item.place.name);
-        return;
-      }
-
-      const position = {
-        mapX: item.place.mapX,
-        mapY: item.place.mapY,}
-
-      const placeData = {
+      if (finalDestination.name === item.place.name) return;
+      const place = {
         name: item.place.name,
         location: item.place.location,
-        position: position,
-        type: mapCategoryToType(item.category) // FIX: place.category → item.category, 표준화
+        position: { mapX: item.place.mapX, mapY: item.place.mapY },
+        type: mapCategoryToType(item.category),
       };
-
       switch (item.category) {
-        case "관광지":
-          placeData.type="spots"
-          categorizedData.tourist_spots.push(placeData);
-          break;
-        case "맛집":
-          placeData.type="restaurants"
-          categorizedData.restaurants.push(placeData);
-          break;
-        case "관광시설":
-          placeData.type="cafes"
-          categorizedData.cafes.push(placeData);
-          break;
-        case "숙박":
-          placeData.type="stays"
-          categorizedData.stays.push(placeData);
-          break;
-        default:
-          console.warn("알 수 없는 카테고리:", item.category);
+        case "관광지": place.type = "spot"; categorized.tourist_spots.push(place); break;
+        case "맛집": place.type = "restaurant"; categorized.restaurants.push(place); break;
+        case "관광시설": place.type = "cafe"; categorized.cafes.push(place); break;
+        case "숙박": place.type = "stay"; categorized.stays.push(place); break;
+        default: break;
       }
     });
 
-    // ✅ 빈 배열은 null 로 변환
-    const normalize = (arr) => (arr.length > 0 ? arr : null);
+    const normalize = (arr) => (arr.length ? arr : null);
 
-    let routeData = {
-      origin: currentLocation,
-      destination,
-      tourist_spots: normalize(categorizedData.tourist_spots),
-      restaurants: normalize(categorizedData.restaurants),
-      cafes: normalize(categorizedData.cafes),
-      stays: normalize(categorizedData.stays),
+    console.log("최적 경로 요청 데이터에 들어갈 mountain", mountainObj)
+    const routeData = {
+      origin: currentLocation, // { mapX, mapY }
+      destination,             // { name, location, type, position }
+      ...(mountainObj ? { mountain: mountainObj } : {}),
+      ...(normalize(categorized.cafes) ? { cafes: normalize(categorized.cafes) } : {}),
+      ...(normalize(categorized.restaurants) ? { restaurants: normalize(categorized.restaurants) } : {}),
+      ...(normalize(categorized.stays) ? { stays: normalize(categorized.stays) } : {}),
+      ...(normalize(categorized.tourist_spots) ? { spots: normalize(categorized.tourist_spots) } : {}),
     };
-
-    routeData = Object.fromEntries(
-        Object.entries(routeData).filter(([_, v]) => v !== null)
-    );
 
     console.log("최적 경로 요청 데이터:", routeData);
     return routeData;
   };
 
-  // Kakao Mobility Directions API 호출 함수
-const fetchKakaoRoute = async (origin, destination) => {
-  try {
-    const url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${origin.mapX},${origin.mapY}&destination=${destination.mapX},${destination.mapY}&priority=RECOMMEND`;
-    console.log(destination.mapX, destination.mapY);
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: "KakaoAK 54aa389e0a9aa1761e2ec162045756ea",
-        "Content-Type": "application/json",
-      },
-    });
+  // Kakao Mobility Directions API
+  const fetchKakaoRoute = async (origin, destination) => {
+    try {
+      if (!destination?.position?.mapX || !destination?.position?.mapY) {
+        console.warn("Kakao Directions: 목적지 좌표 없음");
+        return null;
+      }
+      const url =
+          `https://apis-navi.kakaomobility.com/v1/directions?origin=${origin.mapX},${origin.mapY}` +
+          `&destination=${destination.position.mapX},${destination.position.mapY}&priority=RECOMMEND`;
 
-    const data = await response.json();
-    console.log("카카오 경로 응답:", data);
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: "KakaoAK 54aa389e0a9aa1761e2ec162045756ea",
+          "Content-Type": "application/json",
+        },
+      });
 
-    return data.routes?.[0] ?? null; // 첫 번째 경로만 반환
-  } catch (error) {
-    console.error("카카오 경로 요청 실패:", error);
-    return null;
-  }
-};
+      const data = await response.json();
+      console.log("카카오 경로 응답:", data);
+      return data.routes?.[0] ?? null;
+    } catch (error) {
+      console.error("카카오 경로 요청 실패:", error);
+      return null;
+    }
+  };
 
-  const requestOptimalRoute = async () => {
-    const routeData = formatRouteData();
-    if (!routeData) {
-      console.log("경로 데이터가 준비되지 않았습니다.");
+  // 최적 경로 요청
+  const requestOptimalRoute = async (finalDestination) => {
+    const routeData = await formatRouteData(finalDestination); // ✅ async/await
+    if (!routeData?.destination?.position) {
+      console.log("경로 데이터 준비 안됨(목적지 좌표 없음)");
       return;
     }
 
     try {
       setLoading(true);
       const result = await tourismService.getOptimalRoute(routeData);
-
       if (result.success) {
         setOptimalRouteData(result.data);
         console.log("최적 경로 응답:", result.data);
@@ -321,37 +346,25 @@ const fetchKakaoRoute = async (origin, destination) => {
     }
   };
 
-  const handleStartNavigation = () => {
-    if (!selectedRoute) {
-      Alert.alert("알림", "경로를 선택해주세요.");
-      return;
-    }
-    if (!selectedDestination) {
-      Alert.alert("알림", "최종 목적지를 선택해주세요.");
-      return;
-    }
-
-    Alert.alert(
-        "네비게이션 시작",
-        `${selectedDestination.name}까지 ${selectedRoute.type === "taxi" ? "택시" : "대중교통"} 경로로 안내를 시작합니다.`
-    );
-  };
-
-  // 목적지 선택 핸들러 - 선택 시 즉시 API 요청
-  const handleDestinationSelect = (option) => {
+  // 목적지 선택 시: 산을 선택했다면 이 시점에 좌표 주입 시도
+  const handleDestinationSelect = async (option) => {
     console.log("목적지 선택됨:", option);
+    if ((option.id === "mountain" || option.type === "mountain") && (option.mapX == null || option.mapY == null)) {
+      const m = await getMountainPosition(mountainName);
+      if (m?.position) {
+        option = { ...option, mapX: m.position.mapX, mapY: m.position.mapY, location: m.location ?? option.location };
+      } else {
+        Alert.alert("알림", "산 좌표를 찾을 수 없습니다.");
+      }
+    }
     setSelectedDestination(option);
-    // useEffect가 자동으로 API 요청을 처리할 것입니다
   };
 
   const renderDestinationSelector = () => {
     const options = getDestinationOptions();
-
     return (
         <View style={[styles.destinationSelector, { backgroundColor: themeColors.card }]}>
-          <Text style={[styles.selectorTitle, { color: themeColors.text }]}>
-            🎯 최종 목적지 선택
-          </Text>
+          <Text style={[styles.selectorTitle, { color: themeColors.text }]}>🎯 최종 목적지 선택</Text>
           <Text style={[styles.selectorSubtitle, { color: themeColors.text }]}>
             어디를 최종 목적지로 설정하시겠습니까?
           </Text>
@@ -363,17 +376,15 @@ const fetchKakaoRoute = async (origin, destination) => {
                     style={[
                       styles.destinationOption,
                       {
-                        borderColor: selectedDestination?.id === option.id ? option.color : '#ddd',
+                        borderColor: selectedDestination?.id === option.id ? option.color : "#ddd",
                         borderWidth: selectedDestination?.id === option.id ? 3 : 1,
-                        backgroundColor: selectedDestination?.id === option.id ? (option.color + '20') : 'white'
-                      }
+                        backgroundColor: selectedDestination?.id === option.id ? option.color + "20" : "white",
+                      },
                     ]}
                     onPress={() => handleDestinationSelect(option)}
                 >
                   <Text style={styles.optionIcon}>{option.icon}</Text>
-                  <Text style={[styles.optionCategory, { color: option.color }]}>
-                    {option.category}
-                  </Text>
+                  <Text style={[styles.optionCategory, { color: option.color }]}>{option.category}</Text>
                   <Text style={styles.optionName} numberOfLines={2}>
                     {option.name}
                   </Text>
@@ -388,9 +399,7 @@ const fetchKakaoRoute = async (origin, destination) => {
 
           {!selectedDestination && (
               <View style={styles.selectionPrompt}>
-                <Text style={[styles.promptText, { color: '#FF6B6B' }]}>
-                  ⚠️ 최종 목적지를 선택해주세요
-                </Text>
+                <Text style={[styles.promptText, { color: "#FF6B6B" }]}>⚠️ 최종 목적지를 선택해주세요</Text>
               </View>
           )}
         </View>
@@ -399,25 +408,17 @@ const fetchKakaoRoute = async (origin, destination) => {
 
   const renderTravelPlanSummary = () => {
     if (parsedTravelPlan.length === 0) return null;
-
     return (
         <View style={[styles.summaryContainer, { backgroundColor: themeColors.card }]}>
-          <Text style={[styles.summaryTitle, { color: themeColors.text }]}>
-            📋 선택된 여행 계획
-          </Text>
+          <Text style={[styles.summaryTitle, { color: themeColors.text }]}>📋 선택된 여행 계획</Text>
           {parsedTravelPlan.map((item, index) => (
               <View key={index} style={styles.summaryItem}>
-                <Text style={[styles.summaryCategory, { color: "#4CAF50" }]}>
-                  {item.category}
-                </Text>
-                <Text style={[styles.summaryPlace, { color: themeColors.text }]}>
-                  {item.place.name}
-                </Text>
+                <Text style={[styles.summaryCategory, { color: "#4CAF50" }]}>{item.category}</Text>
+                <Text style={[styles.summaryPlace, { color: themeColors.text }]}>{item.place.name}</Text>
               </View>
           ))}
-
           {selectedDestination && (
-              <View style={[styles.finalDestination, { backgroundColor: selectedDestination.color + '20' }]}>
+              <View style={[styles.finalDestination, { backgroundColor: selectedDestination.color + "20" }]}>
                 <Text style={[styles.finalDestinationLabel, { color: selectedDestination.color }]}>
                   🎯 최종 목적지: {selectedDestination.name}
                 </Text>
@@ -431,10 +432,7 @@ const fetchKakaoRoute = async (origin, destination) => {
       <View style={[styles.container, { backgroundColor: themeColors.background }]}>
         {/* 헤더 */}
         <View style={[styles.header, { backgroundColor: "#4CAF50" }]}>
-          <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-          >
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>🧭 산길 동행</Text>
@@ -450,7 +448,7 @@ const fetchKakaoRoute = async (origin, destination) => {
           {/* 목적지 정보 */}
           <View style={[styles.destinationContainer, { backgroundColor: themeColors.card }]}>
             <Text style={[styles.destinationTitle, { color: themeColors.text }]}>
-              📍 {selectedDestination ? `${selectedDestination.name}으로` : '목적지를 선택하여'} 가는 길 안내
+              📍 {selectedDestination ? `${selectedDestination.name}으로` : "목적지를 선택하여"} 가는 길 안내
             </Text>
             <Text style={[styles.destinationSubtitle, { color: themeColors.text }]}>
               현재 위치에서 목적지까지 최적의 경로를 안내해드립니다
@@ -459,28 +457,23 @@ const fetchKakaoRoute = async (origin, destination) => {
 
           {/* 지도 영역 */}
           <View style={styles.mapContainer}>
-            {selectedDestination ? (
-              <WebView
-                source={{
-                  uri: `https://map.kakao.com/link/map/${selectedDestination.name},${selectedDestination.mapY},${selectedDestination.mapX}`,
-                }}
-                style={{ flex: 1 }}
-              />
+            {selectedDestination && selectedDestination.mapX != null && selectedDestination.mapY != null ? (
+                <WebView
+                    source={{
+                      uri: `https://map.kakao.com/link/map/${selectedDestination.name},${selectedDestination.mapY},${selectedDestination.mapX}`,
+                    }}
+                    style={{ flex: 1 }}
+                />
             ) : (
-              <View style={[styles.mapPlaceholder, { backgroundColor: themeColors.card }]}>
-                <Text style={{ textAlign: "center", marginTop: 80 }}>
-                  목적지를 선택하세요
-                </Text>
-              </View>
+                <View style={[styles.mapPlaceholder, { backgroundColor: themeColors.card }]}>
+                  <Text style={{ textAlign: "center", marginTop: 80 }}>목적지를 선택하세요</Text>
+                </View>
             )}
           </View>
 
           {/* 경로 선택 */}
           <View style={styles.routesContainer}>
-            <Text style={[styles.routesTitle, { color: themeColors.text }]}>
-              경로 선택
-            </Text>
-
+            <Text style={[styles.routesTitle, { color: themeColors.text }]}>경로 선택</Text>
             {routes.map((route) => (
                 <TouchableOpacity
                     key={route.id}
@@ -490,36 +483,25 @@ const fetchKakaoRoute = async (origin, destination) => {
                         backgroundColor: themeColors.card,
                         borderColor: selectedRoute?.id === route.id ? "#4CAF50" : themeColors.border,
                         borderWidth: selectedRoute?.id === route.id ? 2 : 1,
-                        opacity: selectedDestination ? 1 : 0.5
+                        opacity: selectedDestination ? 1 : 0.5,
                       },
                     ]}
                     onPress={() => selectedDestination && handleRouteSelect(route)}
                     disabled={!selectedDestination}
                 >
                   <View style={styles.routeHeader}>
-                    <Text style={[styles.routeDuration, { color: themeColors.text }]}>
-                      {route.duration}
-                    </Text>
-                    <Text style={[styles.routeCost, { color: "#4CAF50" }]}>
-                      {route.cost}
-                    </Text>
+                    <Text style={[styles.routeDuration, { color: themeColors.text }]}>{route.duration}</Text>
+                    <Text style={[styles.routeCost, { color: "#4CAF50" }]}>{route.cost}</Text>
                   </View>
-
-                  <Text style={[styles.routeDescription, { color: themeColors.text }]}>
-                    {route.description}
-                  </Text>
-
+                  <Text style={[styles.routeDescription, { color: themeColors.text }]}>{route.description}</Text>
                   <View style={styles.stepsContainer}>
                     {route.steps.map((step, index) => (
                         <View key={index} style={styles.stepItem}>
                           <View style={[styles.stepDot, { backgroundColor: "#4CAF50" }]} />
-                          <Text style={[styles.stepText, { color: themeColors.text }]}>
-                            {step}
-                          </Text>
+                          <Text style={[styles.stepText, { color: themeColors.text }]}>{step}</Text>
                         </View>
                     ))}
                   </View>
-
                   {selectedRoute?.id === route.id && (
                       <View style={styles.selectedIndicator}>
                         <Text style={styles.selectedText}>✓ 선택됨</Text>
@@ -532,21 +514,15 @@ const fetchKakaoRoute = async (origin, destination) => {
 
         {/* 하단 액션 버튼 */}
         <View style={[styles.actionContainer, { backgroundColor: themeColors.card }]}>
-          <TouchableOpacity
-              style={[styles.laterButton, { borderColor: themeColors.border }]}
-              onPress={() => router.back()}
-          >
-            <Text style={[styles.laterButtonText, { color: themeColors.text }]}>
-              나중에
-            </Text>
+          <TouchableOpacity style={[styles.laterButton, { borderColor: themeColors.border }]} onPress={() => router.back()}>
+            <Text style={[styles.laterButtonText, { color: themeColors.text }]}>나중에</Text>
           </TouchableOpacity>
-
           <TouchableOpacity
               style={[
                 styles.startButton,
                 {
-                  backgroundColor: (selectedRoute && selectedDestination) ? "#4CAF50" : "#ccc",
-                  opacity: (selectedRoute && selectedDestination) ? 1 : 0.5,
+                  backgroundColor: selectedRoute && selectedDestination ? "#4CAF50" : "#ccc",
+                  opacity: selectedRoute && selectedDestination ? 1 : 0.5,
                 },
               ]}
               onPress={handleStartNavigation}
@@ -559,272 +535,60 @@ const fetchKakaoRoute = async (origin, destination) => {
   );
 }
 
+const handleStartNavigation = () => {
+  Alert.alert("네비게이션 시작", "선택한 경로로 안내를 시작합니다.");
+};
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContainer: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingTop: 50,
-    paddingBottom: 15,
-    paddingHorizontal: 20,
-  },
-  backButton: {
-    marginRight: 15,
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: "white",
-    fontWeight: "bold",
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "white",
-  },
-  destinationSelector: {
-    margin: 15,
-    padding: 15,
-    borderRadius: 12,
-  },
-  selectorTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 5,
-  },
-  selectorSubtitle: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 15,
-  },
-  optionsContainer: {
-    flexDirection: 'row',
-  },
+  container: { flex: 1 },
+  scrollContainer: { flex: 1 },
+  header: { flexDirection: "row", alignItems: "center", paddingTop: 50, paddingBottom: 15, paddingHorizontal: 20 },
+  backButton: { marginRight: 15 },
+  backButtonText: { fontSize: 24, color: "white", fontWeight: "bold" },
+  headerTitle: { fontSize: 20, fontWeight: "bold", color: "white" },
+  destinationSelector: { margin: 15, padding: 15, borderRadius: 12 },
+  selectorTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 5 },
+  selectorSubtitle: { fontSize: 14, opacity: 0.7, marginBottom: 15 },
+  optionsContainer: { flexDirection: "row" },
   destinationOption: {
-    width: 120,
-    height: 140,
-    borderRadius: 12,
-    padding: 10,
-    marginRight: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+    width: 120, height: 140, borderRadius: 12, padding: 10, marginRight: 10,
+    alignItems: "center", justifyContent: "center", position: "relative",
   },
-  optionIcon: {
-    fontSize: 30,
-    marginBottom: 8,
-  },
-  optionCategory: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  optionName: {
-    fontSize: 11,
-    textAlign: 'center',
-    lineHeight: 14,
-  },
-  selectedBadge: {
-    position: 'absolute',
-    top: 5,
-    right: 5,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  selectedBadgeText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  selectionPrompt: {
-    marginTop: 10,
-    padding: 10,
-    backgroundColor: '#FFF5F5',
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  promptText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  summaryContainer: {
-    margin: 15,
-    marginTop: 0,
-    padding: 15,
-    borderRadius: 12,
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  summaryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-  summaryCategory: {
-    fontSize: 14,
-    fontWeight: '600',
-    minWidth: 60,
-  },
-  summaryPlace: {
-    fontSize: 14,
-    flex: 1,
-  },
-  finalDestination: {
-    marginTop: 10,
-    padding: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  finalDestinationLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  destinationContainer: {
-    margin: 15,
-    marginTop: 0,
-    padding: 20,
-    borderRadius: 12,
-  },
-  destinationTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
-  destinationSubtitle: {
-    fontSize: 14,
-    opacity: 0.7,
-    lineHeight: 20,
-  },
-  mapContainer: {
-    margin: 15,
-    height: 200,
-  },
-  mapPlaceholder: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: "hidden",
-    position: "relative",
-  },
-  mapImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
-  mapOverlay: {
-    position: "absolute",
-    top: 15,
-    right: 15,
-    backgroundColor: "#4CAF50",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  mapTime: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 12,
-  },
-  routesContainer: {
-    paddingHorizontal: 15,
-    paddingBottom: 20,
-  },
-  routesTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 15,
-  },
-  routeCard: {
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 15,
-    position: "relative",
-  },
-  routeHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  routeDuration: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  routeCost: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  routeDescription: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 15,
-  },
-  stepsContainer: {
-    paddingLeft: 10,
-  },
-  stepItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  stepDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 12,
-  },
-  stepText: {
-    fontSize: 14,
-    flex: 1,
-  },
-  selectedIndicator: {
-    position: "absolute",
-    top: 15,
-    right: 15,
-    backgroundColor: "#4CAF50",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  selectedText: {
-    color: "white",
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-  actionContainer: {
-    flexDirection: "row",
-    padding: 15,
-    gap: 10,
-  },
-  laterButton: {
-    flex: 1,
-    paddingVertical: 15,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-  },
-  laterButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  startButton: {
-    flex: 1,
-    paddingVertical: 15,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  startButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
+  optionIcon: { fontSize: 30, marginBottom: 8 },
+  optionCategory: { fontSize: 12, fontWeight: "600", marginBottom: 4 },
+  optionName: { fontSize: 11, textAlign: "center", lineHeight: 14 },
+  selectedBadge: { position: "absolute", top: 5, right: 5, width: 20, height: 20, borderRadius: 10, justifyContent: "center", alignItems: "center" },
+  selectedBadgeText: { color: "white", fontSize: 12, fontWeight: "bold" },
+  selectionPrompt: { marginTop: 10, padding: 10, backgroundColor: "#FFF5F5", borderRadius: 8, alignItems: "center" },
+  promptText: { fontSize: 14, fontWeight: "600" },
+  summaryContainer: { margin: 15, marginTop: 0, padding: 15, borderRadius: 12 },
+  summaryTitle: { fontSize: 16, fontWeight: "bold", marginBottom: 10 },
+  summaryItem: { flexDirection: "row", alignItems: "center", marginBottom: 5 },
+  summaryCategory: { fontSize: 14, fontWeight: "600", minWidth: 60 },
+  summaryPlace: { fontSize: 14, flex: 1 },
+  finalDestination: { marginTop: 10, padding: 10, borderRadius: 8, alignItems: "center" },
+  finalDestinationLabel: { fontSize: 16, fontWeight: "bold" },
+  destinationContainer: { margin: 15, marginTop: 0, padding: 20, borderRadius: 12 },
+  destinationTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 8 },
+  destinationSubtitle: { fontSize: 14, opacity: 0.7, lineHeight: 20 },
+  mapContainer: { margin: 15, height: 500 },
+  mapPlaceholder: { flex: 1, borderRadius: 12, overflow: "hidden", position: "relative" },
+  routesContainer: { paddingHorizontal: 15, paddingBottom: 20 },
+  routesTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 15 },
+  routeCard: { padding: 20, borderRadius: 12, marginBottom: 15, position: "relative" },
+  routeHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
+  routeDuration: { fontSize: 18, fontWeight: "bold" },
+  routeCost: { fontSize: 16, fontWeight: "600" },
+  routeDescription: { fontSize: 14, opacity: 0.7, marginBottom: 15 },
+  stepsContainer: { paddingLeft: 10 },
+  stepItem: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  stepDot: { width: 8, height: 8, borderRadius: 4, marginRight: 12 },
+  stepText: { fontSize: 14, flex: 1 },
+  selectedIndicator: { position: "absolute", top: 15, right: 15, backgroundColor: "#4CAF50", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  selectedText: { color: "white", fontSize: 12, fontWeight: "bold" },
+  actionContainer: { flexDirection: "row", padding: 15, gap: 10 },
+  laterButton: { flex: 1, paddingVertical: 15, borderRadius: 12, borderWidth: 1, alignItems: "center" },
+  laterButtonText: { fontSize: 16, fontWeight: "600" },
+  startButton: { flex: 1, paddingVertical: 15, borderRadius: 12, alignItems: "center" },
+  startButtonText: { color: "white", fontSize: 16, fontWeight: "bold" },
 });

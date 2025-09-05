@@ -2,6 +2,59 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from "axios";
 
+// 쿠키 관리 헬퍼 함수들
+const cookieHelpers = {
+  // 쿠키 삭제
+  removeCookie: (name) => {
+    if (typeof document !== "undefined" && document?.cookie !== undefined) {
+      try {
+        // 여러 경로와 도메인에서 쿠키 삭제를 시도
+        const deletePatterns = [
+          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`,
+          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`,
+          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; secure`,
+          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; secure; samesite=strict`
+        ];
+        
+        deletePatterns.forEach(pattern => {
+          document.cookie = pattern;
+        });
+        
+        console.log(`쿠키 '${name}' 삭제 완료`);
+      } catch (error) {
+        console.warn(`쿠키 '${name}' 삭제 실패:`, error);
+      }
+    }
+  },
+  
+  // 쿠키 설정
+  setCookie: (name, value) => {
+    if (typeof document !== "undefined" && document?.cookie !== undefined) {
+      try {
+        document.cookie = `${name}=${value}; path=/; secure; samesite=strict`;
+        console.log(`쿠키 '${name}' 설정 완료`);
+      } catch (error) {
+        console.warn(`쿠키 '${name}' 설정 실패:`, error);
+      }
+    }
+  }
+};
+
+// 토큰 완전 삭제 함수
+const clearAllAuthData = async (reason = "로그아웃") => {
+  try {
+    // AsyncStorage에서 토큰 삭제
+    await AsyncStorage.removeItem('authToken');
+    
+    // 쿠키에서 토큰 삭제
+    cookieHelpers.removeCookie('accessToken');
+    
+    console.log(`${reason}으로 모든 인증 데이터 삭제 완료`);
+  } catch (error) {
+    console.error("인증 데이터 삭제 실패:", error);
+  }
+};
+
 // 에뮬레이터/실기기에 따른 API URL 설정
 const getApiUrl = () => {
   // 실제 서버 주소 사용
@@ -23,24 +76,26 @@ const apiClientJson = axios.create({
 });
 
 // 요청 인터셉터: 토큰이 있으면 Authorization 헤더에 추가
-apiClientJson.interceptors.request.use(
-  async (config) => {
-    try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-        console.log(`${token}`);
-        console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url} - 토큰 포함됨`);
-      } else {
-        console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url} - 토큰 없음`);
-      }
-      console.log(`[API Request] Full URL: ${config.baseURL}${config.url}`);
-    } catch (error) {
-      console.log("토큰 조회 실패:", error);
-    }
-    return config;
+apiClientJson.interceptors.response.use(
+  (res) => {
+    console.log(`[API JSON Response] ${res.status} ${res.config.method?.toUpperCase()} ${res.config.url}`);
+    return res;
   },
-  (error) => Promise.reject(error)
+  async (err) => {
+    console.log(`[API JSON Error] ${err.response?.status || 'Network'} ${err.config?.method?.toUpperCase()} ${err.config?.url}`);
+    
+    // 401 Unauthorized 또는 400 Bad Request 시 모든 인증 데이터 삭제
+    if (err.response?.status === 401) {
+      await clearAllAuthData("인증 만료");
+    } else if (err.response?.status === 400) {
+      const errorMessage = err.response?.data?.message || '';
+      if (errorMessage.includes('토큰') || errorMessage.includes('인증') || errorMessage.includes('로그인')) {
+        await clearAllAuthData("인증 오류");
+      }
+    }
+    
+    return Promise.reject(err);
+  }
 );
 
 // 응답 인터셉터: 디버깅을 위해 원본 응답 반환 + 401 처리
@@ -56,23 +111,17 @@ apiClient.interceptors.response.use(
     console.log(`[API Error] ${err.response?.status || 'Network'} ${err.config?.method?.toUpperCase()} ${err.config?.url}`);
     console.log(`[API Error] Details:`, err.response?.data || err.message);
     
-    // 401 Unauthorized 시 토큰 삭제 (자동 로그아웃)
+    // 401 Unauthorized 또는 400 Bad Request 시 모든 인증 데이터 삭제
     if (err.response?.status === 401) {
-      try {
-        await AsyncStorage.removeItem('authToken');
-        console.log("인증 만료로 토큰 삭제");
-      } catch (error) {
-        console.log("토큰 삭제 실패:", error);
+      await clearAllAuthData("인증 만료");
+    } else if (err.response?.status === 400) {
+      // 400 에러가 인증 관련인 경우에만 토큰 삭제
+      const errorMessage = err.response?.data?.message || '';
+      if (errorMessage.includes('토큰') || errorMessage.includes('인증') || errorMessage.includes('로그인')) {
+        await clearAllAuthData("인증 오류");
       }
     }
-        if (err.response?.status === 400) {
-      try {
-        await AsyncStorage.removeItem('authToken');
-        console.log("인증 만료로 토큰 삭제");
-      } catch (error) {
-        console.log("토큰 삭제 실패:", error);
-      }
-    }
+    
     return Promise.reject(err);
   }
 );
@@ -93,11 +142,55 @@ export const mountainService = {
       activity: m.difficulty
     }));
   },
+
+  // mountain name 방어 + 트림
+
+  fetchMountainXY: async (mountainName, { signal } = {}) => {
+
+    try {
+
+      const name = (mountainName ?? "").toString().trim();
+
+      if (!name) {
+
+        console.warn("[fetchMountainXY] mountainName 비어있음");
+
+        return { mountains: [] };
+
+      }
+
+      const response = await apiClient.get("/api/mountains/search", {
+
+        params: { mountainName: name },
+
+        signal,
+
+      });
+
+      console.log("응답"+response);
+
+      // apiClient 인터셉터 때문에 response는 이미 res.data
+
+      // 형태: { mountains: [{ mountainName, mountainAddress, mapX, mapY }, ...] }
+
+      return response;
+
+    } catch (err) {
+
+      console.error("[fetchMountainXY] 에러:", err);
+
+      throw err;
+
+    }
+
+  },
 };
 
 export const loginService = {
   login: async (username, password) => {
     try {
+      await clearAllAuthData("새 로그인 시도");
+
       const requestData = {
         username: username.trim(),
         password: password.trim(),
@@ -123,14 +216,8 @@ export const loginService = {
         // AsyncStorage에 토큰 저장 (인터셉터에서 사용)
         await AsyncStorage.setItem('authToken', token);
         // 쿠키에도 저장 (기존 코드)
-        if (typeof document !== "undefined" && document?.cookie !== undefined) {
-          try {
-            document.cookie = `accessToken=${token}; path=/; secure; samesite=strict`;
-          } catch (e) {
-            console.warn("브라우저 쿠키 저장 실패:", e);
-          }
-        }
-        console.log("저장된 토큰:", token);
+        cookieHelpers.setCookie('accessToken', token);
+
       } else {
         console.error("토큰을 찾을 수 없습니다.");
       }
@@ -144,6 +231,11 @@ export const loginService = {
       throw error; // 에러를 다시 던져서 호출하는 쪽에서 처리할 수 있도록
     }
   },
+
+    logout: async () => {
+    await clearAllAuthData("수동 로그아웃");
+    return { success: true, message: "로그아웃되었습니다." };
+  }
 };
 
 // 여행 목록 소개

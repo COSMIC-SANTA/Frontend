@@ -18,13 +18,6 @@ const INTEREST_ENUM = {
   "activity\n(leisure)": "ACTIVITY",
 };
 
-const MEDALS = [
-  { id: "1", title: "special prize", medal: require("../assets/images/greenmedal.png") },
-  { id: "2", title: "7week", medal: require("../assets/images/yellowmedal.png") },
-  { id: "3", title: "1month", medal: require("../assets/images/pinkmedal.png") },
-  { id: "4", title: "explore", medal: require("../assets/images/redmedal.png") },
-];
-
 
 export default function MainScreen() {
   const router = useRouter();
@@ -197,8 +190,9 @@ export default function MainScreen() {
                 style={styles.confirmButton}
                 onPress={() => {
                   const location = clickedMap[item.name]?.info?.location;
+                  const mountainName = clickedMap[item.name]?.info?.mountainName;
                   if (location) {
-                    router.push(`/mountain-tourism?location=${encodeURIComponent(location)}&pageNo=1`);
+                    router.push(`/mountain-tourism?mountainName=${encodeURIComponent(mountainName)}&location=${encodeURIComponent(location)}&pageNo=1`);
                   } else {
                     console.log("location 정보가 없습니다.");
                   }
@@ -304,27 +298,8 @@ export default function MainScreen() {
           {/* 임시 날씨 위젯 */}
           <WeatherBox />
 
-          <View style={styles.textContainer2}>
-            <Text style={styles.line5}>Medal</Text>
-            <Text style={styles.line6}>Achieve your goals and collect your medals!</Text>
-          </View>
 
           {/* 메달 리스트 */}
-          <FlatList
-            horizontal
-            data={MEDALS}
-            keyExtractor={(item) => item.id}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.medalList}
-            renderItem={({ item }) => (
-              <View style={styles.medalItem}>
-                <View style={styles.medalcircle}>
-                  <Image source={item.medal} style={styles.medal} />
-                </View>
-                <Text style={styles.medalTitle}>{item.title}</Text>
-              </View>
-            )}
-          />
         </View>
         {/* 바디 영역 끝 */}
       </ScrollView>

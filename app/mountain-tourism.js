@@ -24,7 +24,7 @@ const CATEGORIES = [
 
 export default function MountainTourismScreen() {
   const router = useRouter();
-  const { location, pageNo } = useLocalSearchParams();
+  const { mountainName, location, pageNo } = useLocalSearchParams();
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? "light"];
   
@@ -45,7 +45,7 @@ export default function MountainTourismScreen() {
 
   useEffect(() => {
     loadInitialData();
-  }, [location]);
+  }, [location, mountainName]);
 
   useEffect(() => {
     // 카테고리 변경 시 해당 카테고리의 데이터로 업데이트
@@ -88,7 +88,7 @@ export default function MountainTourismScreen() {
     setRefreshing(true);
     await loadInitialData();
     setRefreshing(false);
-  }, [location]);
+  }, [location, mountainName]);
 
   const getCategoryConfig = (categoryKey) => {
     return CATEGORIES.find(cat => cat.key === categoryKey) || CATEGORIES[0];
@@ -122,7 +122,8 @@ export default function MountainTourismScreen() {
       pathname: '/mountain-direction',
       params: {
         travelPlan: JSON.stringify(selectedPlaces),
-        location: location
+        location: location,
+        mountainName: mountainName
       }
     });
   };
@@ -298,7 +299,7 @@ export default function MountainTourismScreen() {
   const renderHeader = () => (
     <View style={[styles.header, { backgroundColor: "#0A5011" }]}>
       <Text style={styles.headerTitle}>
-        {location || "관광 정보"}
+        {mountainName || "관광 정보"}
       </Text>
       <Text style={styles.headerSubtitle}>
         주변 관광 스팟 추천
