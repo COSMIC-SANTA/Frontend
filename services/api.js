@@ -26,11 +26,10 @@ const apiClientJson = axios.create({
 apiClientJson.interceptors.request.use(
   async (config) => {
     try {
-      await AsyncStorage.removeItem('authToken');
       const token = await AsyncStorage.getItem('authToken');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-        console.log(`test ${token}`);
+        console.log(`${token}`);
         console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url} - 토큰 포함됨`);
       } else {
         console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url} - 토큰 없음`);
@@ -59,6 +58,14 @@ apiClient.interceptors.response.use(
     
     // 401 Unauthorized 시 토큰 삭제 (자동 로그아웃)
     if (err.response?.status === 401) {
+      try {
+        await AsyncStorage.removeItem('authToken');
+        console.log("인증 만료로 토큰 삭제");
+      } catch (error) {
+        console.log("토큰 삭제 실패:", error);
+      }
+    }
+        if (err.response?.status === 400) {
       try {
         await AsyncStorage.removeItem('authToken');
         console.log("인증 만료로 토큰 삭제");
@@ -103,7 +110,7 @@ export const loginService = {
       console.log("로그인 응답 (원본):", response);
 
       const jsonData = typeof response.data === "string" 
-        ? JSON.parse(response.data) 
+        ? JSON.parse(response.data)
         : response.data;
 
       // 문제가 있던 부분 - response 대신 response.data를 사용해야 함

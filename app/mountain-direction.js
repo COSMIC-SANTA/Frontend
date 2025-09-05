@@ -115,10 +115,10 @@ export default function MountainDirectionScreen() {
   const mapCategoryToType = (categoryOrType, optionId) => {
     if (optionId === 'mountain') return 'mountain';
     switch (categoryOrType) {
-      case '관광지': return 'spot';
-      case '맛집': return 'restaurant';
-      case '관광시설': return 'cafe';
-      case '숙박': return 'stay';
+      case '관광지': return 'spots';
+      case '맛집': return 'restaurants';
+      case '관광시설': return 'cafes';
+      case '숙박': return 'stays';
       case 'mountain': return 'mountain';
       default:
         console.warn('알 수 없는 카테고리/타입:', categoryOrType, '→ 기본값 spot');
@@ -191,8 +191,8 @@ export default function MountainDirectionScreen() {
     const categorizedData = {
       tourist_spots: [],
       restaurants: [],
-      facility: [],
-      stay: []
+      cafes: [],
+      stays: []
     };
 
     const destination = {
@@ -200,14 +200,16 @@ export default function MountainDirectionScreen() {
       location: selectedDestination.location,
       // 선택된 옵션의 type(있다면) 또는 category를 받아 표준화. 산일 경우 mountain으로 강제.
       type: mapCategoryToType(
-          selectedDestination.type ?? selectedDestination.category,
-          selectedDestination.id
+          selectedDestination.category, selectedDestination.id
       ),
     };
 
     if (selectedDestination.mapX != null && selectedDestination.mapY != null) {
-      destination.mapX = selectedDestination.mapX;
-      destination.mapY = selectedDestination.mapY;
+      const position = {
+        mapX: selectedDestination.mapX,
+        mapY: selectedDestination.mapY,
+      }
+      destination.position = position;
     }
 
     parsedTravelPlan.forEach((item) => {
@@ -229,20 +231,20 @@ export default function MountainDirectionScreen() {
 
       switch (item.category) {
         case "관광지":
-          placeData.type="spot"
+          placeData.type="spots"
           categorizedData.tourist_spots.push(placeData);
           break;
         case "맛집":
-          placeData.type="restaurant"
+          placeData.type="restaurants"
           categorizedData.restaurants.push(placeData);
           break;
         case "관광시설":
-          placeData.type="cafe"
-          categorizedData.facility.push(placeData);
+          placeData.type="cafes"
+          categorizedData.cafes.push(placeData);
           break;
         case "숙박":
-          placeData.type="stay"
-          categorizedData.stay.push(placeData);
+          placeData.type="stays"
+          categorizedData.stays.push(placeData);
           break;
         default:
           console.warn("알 수 없는 카테고리:", item.category);
@@ -257,8 +259,8 @@ export default function MountainDirectionScreen() {
       destination,
       tourist_spots: normalize(categorizedData.tourist_spots),
       restaurants: normalize(categorizedData.restaurants),
-      facility: normalize(categorizedData.facility),
-      stay: normalize(categorizedData.stay),
+      cafes: normalize(categorizedData.cafes),
+      stays: normalize(categorizedData.stays),
     };
 
     routeData = Object.fromEntries(
@@ -273,9 +275,9 @@ export default function MountainDirectionScreen() {
 const fetchKakaoRoute = async (origin, destination) => {
   try {
     const url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${origin.mapX},${origin.mapY}&destination=${destination.mapX},${destination.mapY}&priority=RECOMMEND`;
-
+    console.log(destination.mapX, destination.mapY);
     const response = await fetch(url, {
-      method: "GET",
+      method: "POST",
       headers: {
         Authorization: "KakaoAK 54aa389e0a9aa1761e2ec162045756ea",
         "Content-Type": "application/json",
