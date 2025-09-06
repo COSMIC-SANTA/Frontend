@@ -16,8 +16,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "expo-router";
 import BottomNavBar from "./s_navigationbar";
 import { mountainService, weatherService } from "../services/api";
-import {Animated, Platform} from "react-native";
-
+import { Animated, Platform } from "react-native";
 
 const { width } = Dimensions.get("window");
 const CATEGORIES = ["popular", "high", "low\nmountain", "activity\n(leisure)"];
@@ -36,14 +35,12 @@ const MEDALS = [
   { id: "4", title: "explore", medal: require("../assets/images/redmedal.png") },
 ];
 
-// -- 코드 작업중 ------
 function BannerCard({ item }) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
-  // 카드 크기는 기존 UI와 동일하게 유지
   const CARD_W = 200;
   const CARD_H = 300;
 
@@ -71,10 +68,7 @@ function BannerCard({ item }) {
     setLoading(true);
     setErr("");
     try {
-      // item.name을 request로 사용 (기존 리스트 데이터 형식 유지)
       const data = await mountainService.fetchDetailByName(item.name);
-      // 기대 응답:
-      // { mountainName, mountainAddress, high, mntidetails, mntitop }
       setDetail(data);
     } catch (e) {
       setErr(e.message || "상세 정보를 가져오지 못했습니다.");
@@ -85,7 +79,7 @@ function BannerCard({ item }) {
 
   const onPress = async () => {
     if (!isFlipped) {
-      await loadDetail();   // 처음 뒤집힐 때만 요청
+      await loadDetail();
       setIsFlipped(true);
       flipTo(180);
     } else {
@@ -96,8 +90,12 @@ function BannerCard({ item }) {
 
   return (
     <View style={styles.cardWrapper}>
-      <TouchableOpacity style={[styles.card, { width: CARD_W, height: CARD_H }]} onPress={onPress} activeOpacity={0.9}>
-        {/* 앞면 */}
+      <TouchableOpacity
+        style={[styles.card, { width: CARD_W, height: CARD_H }]}
+        onPress={onPress}
+        activeOpacity={0.9}
+      >
+        {/* Front */}
         <Animated.View
           style={[
             styles.flipFront,
@@ -110,7 +108,7 @@ function BannerCard({ item }) {
           />
         </Animated.View>
 
-        {/* 뒷면 */}
+        {/* Back */}
         <Animated.View
           style={[
             styles.flipBack,
@@ -132,14 +130,16 @@ function BannerCard({ item }) {
               {detail.mountainAddress ? (
                 <Text style={styles.backSub}>{detail.mountainAddress}</Text>
               ) : null}
-              {detail.high ? (
-                <Text style={styles.backMeta}>고도: {detail.high}</Text>
-              ) : null}
+              {detail.high ? <Text style={styles.backMeta}>고도: {detail.high}</Text> : null}
               {detail.mntidetails ? (
-                <Text style={styles.backBody} numberOfLines={5}>{detail.mntidetails}</Text>
+                <Text style={styles.backBody} numberOfLines={5}>
+                  {detail.mntidetails}
+                </Text>
               ) : null}
               {detail.mntitop ? (
-                <Text style={styles.backFoot} numberOfLines={2}>대표 봉우리: {detail.mntitop}</Text>
+                <Text style={styles.backFoot} numberOfLines={2}>
+                  대표 봉우리: {detail.mntitop}
+                </Text>
               ) : null}
             </View>
           ) : (
@@ -148,13 +148,10 @@ function BannerCard({ item }) {
         </Animated.View>
       </TouchableOpacity>
 
-      {/* 기존 캡션 스타일 유지 */}
       <Text style={styles.cardText}>{item.name}</Text>
     </View>
   );
 }
-
-// -----------------코드 작업중 --------
 
 export default function MainScreen() {
   const router = useRouter();
@@ -168,14 +165,13 @@ export default function MainScreen() {
 
   useEffect(() => {
     const controller = new AbortController();
-
     const run = async () => {
       if (!interestEnum) return;
       setLoading(true);
       setError("");
       try {
         const data = await mountainService.fetchByInterest(interestEnum, { signal: controller.signal });
-        setMountains(data); // [{ id, name, image }]
+        setMountains(data);
       } catch (e) {
         if (e.name !== "CanceledError" && e.name !== "AbortError") {
           setError("산 목록을 불러오지 못했습니다.");
@@ -184,7 +180,6 @@ export default function MainScreen() {
         setLoading(false);
       }
     };
-
     run();
     return () => controller.abort();
   }, [interestEnum]);
@@ -197,14 +192,13 @@ export default function MainScreen() {
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
-  const [candidates, setCandidates] = useState([]); // [{ mountainName, mountainAddress, mapX, mapY }]
+  const [candidates, setCandidates] = useState([]);
 
-  const [selectedMountain, setSelectedMountain] = useState(null); // { mountainName, mountainAddress, mapX, mapY }
+  const [selectedMountain, setSelectedMountain] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState("");
-  const [weather, setWeather] = useState(null); // { temperature, weatherCode }
+  const [weather, setWeather] = useState(null);
 
-  // 산 이름 자동완성 (디바운스 350ms)
   useEffect(() => {
     if (!query?.trim()) {
       setCandidates([]);
@@ -217,7 +211,7 @@ export default function MainScreen() {
       setSearchError("");
       try {
         const list = await weatherService.searchMountainsByName(query.trim(), { signal: controller.signal });
-        setCandidates(list); // [{ mountainName, mountainAddress, mapX, mapY }]
+        setCandidates(list);
       } catch (e) {
         if (e.name !== "CanceledError" && e.name !== "AbortError") {
           setSearchError("산 검색 중 오류가 발생했습니다.");
@@ -233,7 +227,6 @@ export default function MainScreen() {
     };
   }, [query]);
 
-  // 산 선택 → 좌표로 날씨 조회
   const handlePickMountain = async (item) => {
     setSelectedMountain(item);
     setQuery(item.mountainName);
@@ -247,7 +240,6 @@ export default function MainScreen() {
         mapX: Number(item.mapX),
         mapY: Number(item.mapY),
       });
-      // res = { message: "success", data: { temperature, weatherCode } } 형태일 수 있으니 필요시 가공
       setWeather(res);
     } catch (e) {
       if (e.name !== "CanceledError" && e.name !== "AbortError") {
@@ -258,20 +250,7 @@ export default function MainScreen() {
     }
   };
 
-  // const renderCard = ({ item }) => (
-  //   <View style={styles.cardWrapper}>
-  //     <TouchableOpacity style={styles.card} onPress={() => console.log("Pressed", item.name)}>
-  //       <Image
-  //         source={item.image ? { uri: item.image } : require("../assets/images/namelessmountain.png")}
-  //         style={styles.mountainImage}
-  //       />
-  //     </TouchableOpacity>
-  //     <Text style={styles.cardText}>{item.name}</Text>
-  //   </View>
-  // );
-
   const renderCard = ({ item }) => <BannerCard item={item} />;
-
 
   const weatherLabel = (code) => {
     if (!code) return "-";
@@ -290,8 +269,12 @@ export default function MainScreen() {
 
   return (
     <View style={styles.wrapper}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        {/* 초록색 헤더 부분 시작 */}
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        nestedScrollEnabled
+      >
+        {/* 헤더 */}
         <View style={styles.headerContainer}>
           {/* 왼쪽 곡선 */}
           <View style={{ position: "absolute", bottom: 10, left: -400, zIndex: -1 }}>
@@ -308,7 +291,6 @@ export default function MainScreen() {
             <Line width={width * 1.21} height={width * 0.5} style={{ transform: [{ translateX: width * 0.35 }] }} />
           </View>
 
-          {/* 헤더 텍스트 */}
           <View style={styles.textContainer}>
             <Text style={styles.line1}>Go</Text>
             <Text style={styles.line2}>to</Text>
@@ -316,19 +298,17 @@ export default function MainScreen() {
             <Text style={styles.line4}>mountain</Text>
           </View>
 
-          {/* 설정 아이콘 */}
           <View style={styles.rightContainer}>
             <TouchableOpacity style={styles.settingsButton}>
               <Ionicons name="settings-outline" size={30} color="black" />
             </TouchableOpacity>
           </View>
         </View>
-        {/* 초록 헤더 끝 */}
 
-        {/* 왼쪽 위 사람 일러스트 */}
+        {/* 왼쪽 위 일러스트 */}
         <Image source={require("../assets/images/mainperson.png")} style={styles.personImage2} resizeMode="contain" />
 
-        {/* 바디 영역 */}
+        {/* 바디 */}
         <View style={styles.bodyContainer}>
           <View style={styles.wrapper}>
             <Text style={styles.greeting}>Hi, Daniel!</Text>
@@ -342,7 +322,9 @@ export default function MainScreen() {
                 <TouchableOpacity key={cat} onPress={() => setSelectedCategory(cat)}>
                   <View style={styles.categoryWrapper}>
                     {selectedCategory === cat && <View style={styles.dot} />}
-                    <Text style={[styles.categoryText, selectedCategory === cat && styles.selectedCategory]}>{cat}</Text>
+                    <Text style={[styles.categoryText, selectedCategory === cat && styles.selectedCategory]}>
+                      {cat}
+                    </Text>
                   </View>
                 </TouchableOpacity>
               ))}
@@ -367,6 +349,7 @@ export default function MainScreen() {
                   alignItems: "center",
                 }}
                 renderItem={renderCard}
+                nestedScrollEnabled
               />
             )}
           </View>
@@ -390,25 +373,24 @@ export default function MainScreen() {
             </View>
             {searchError ? <Text style={styles.errorText}>{searchError}</Text> : null}
 
-            {/* 자동완성 드롭다운 */}
+            {/* 자동완성 드롭다운 (FlatList → map으로 변경: ScrollView 중첩 경고 방지) */}
             {candidates.length > 0 && (
               <View style={styles.dropdown}>
-                <FlatList
-                  data={candidates}
-                  keyExtractor={(_, idx) => String(idx)}
-                  keyboardShouldPersistTaps="handled"
-                  renderItem={({ item }) => (
-                    <TouchableOpacity style={styles.dropdownItem} onPress={() => handlePickMountain(item)}>
-                      <Ionicons name="pin-outline" size={16} color="#325A2A" style={{ marginRight: 8 }} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.dropdownName}>{item.mountainName}</Text>
-                        <Text style={styles.dropdownAddr} numberOfLines={1}>
-                          {item.mountainAddress}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  )}
-                />
+                {candidates.map((item, idx) => (
+                  <TouchableOpacity
+                    key={String(idx)}
+                    style={styles.dropdownItem}
+                    onPress={() => handlePickMountain(item)}
+                  >
+                    <Ionicons name="pin-outline" size={16} color="#325A2A" style={{ marginRight: 8 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.dropdownName}>{item.mountainName}</Text>
+                      <Text style={styles.dropdownAddr} numberOfLines={1}>
+                        {item.mountainAddress}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
               </View>
             )}
 
@@ -433,17 +415,13 @@ export default function MainScreen() {
                 <Text style={styles.errorText}>{weatherError}</Text>
               ) : weather ? (
                 <View style={styles.weatherInfoRow}>
-                  {/* 온도 */}
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
                     <Ionicons name="thermometer-outline" size={22} color="#000" style={{ marginRight: 6 }} />
                     <Text style={styles.tempText}>
-                      {typeof weather.temperature === "number"
-                        ? `${weather.temperature.toFixed(1)}°C`
-                        : "-"}
+                      {typeof weather.temperature === "number" ? `${weather.temperature.toFixed(1)}°C` : "-"}
                     </Text>
                   </View>
 
-                  {/* 날씨 코드 + 아이콘 */}
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
                     <Ionicons
                       name={
@@ -481,7 +459,6 @@ export default function MainScreen() {
           </View>
           {/* --- 날씨 끝 --- */}
         </View>
-        {/* 바디 영역 끝 */}
       </ScrollView>
 
       <BottomNavBar onNavigate={handleNavigation} />
@@ -600,36 +577,34 @@ const styles = StyleSheet.create({
     textTransform: "lowercase",
   },
 
-    // --- flip front/back (기존 카드 스타일 최대한 유지) ---
-    flipFront: {
-      backfaceVisibility: "hidden",
-      borderRadius: 20,
-      overflow: "hidden",
-    },
-    flipBack: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      backfaceVisibility: "hidden",
-      borderRadius: 20,
-      overflow: "hidden",
-      padding: 12,
-      backgroundColor: "#fff", // 기존 카드 배경톤 유지
-      justifyContent: "center",
-      alignItems: "flex-start",
-    },
-    retryBtn: {
-      backgroundColor: "#5C7145",
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 10,
-    },
-    backTitle: { fontSize: 16, fontWeight: "800", color: "#000", marginBottom: 6 },
-    backSub: { fontSize: 12, color: "#666", marginBottom: 6 },
-    backMeta: { fontSize: 12, color: "#333", marginBottom: 6 },
-    backBody: { fontSize: 12, color: "#000", lineHeight: 18 },
-    backFoot: { fontSize: 12, color: "#000", marginTop: 8 },
-  
+  flipFront: {
+    backfaceVisibility: "hidden",
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  flipBack: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    backfaceVisibility: "hidden",
+    borderRadius: 20,
+    overflow: "hidden",
+    padding: 12,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "flex-start",
+  },
+  retryBtn: {
+    backgroundColor: "#5C7145",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  backTitle: { fontSize: 16, fontWeight: "800", color: "#000", marginBottom: 6 },
+  backSub: { fontSize: 12, color: "#666", marginBottom: 6 },
+  backMeta: { fontSize: 12, color: "#333", marginBottom: 6 },
+  backBody: { fontSize: 12, color: "#000", lineHeight: 18 },
+  backFoot: { fontSize: 12, color: "#000", marginTop: 8 },
 
   // --- 날씨 영역 ---
   weatherSection: { marginTop: 24, paddingHorizontal: 20 },

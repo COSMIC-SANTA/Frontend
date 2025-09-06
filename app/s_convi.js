@@ -19,11 +19,9 @@ const { width } = Dimensions.get('window');
 
 // ─────────────────────────────────────────────
 // ✅ 웹 테스트 모드 설정
-//  - 웹에서는 권한 팝업 없이 모의 좌표로 API 호출
-//  - 네이티브(iOS/Android)는 기존대로 권한 요청 → 실제 좌표로 호출
 // ─────────────────────────────────────────────
 const WEB_TEST = Platform.OS === 'web';
-const MOCK_COORD = { x: '127.0276', y: '37.4979' }; // 강남역 근처 (원하면 변경)
+const MOCK_COORD = { x: '127.0276', y: '37.4979' }; // 강남역 근처
 
 // 카테고리 색상
 const PIN = {
@@ -33,9 +31,16 @@ const PIN = {
   pharmacy: 'green',
 };
 
+// 숫자 변환 + 유효성 검사
+const toNum = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
 export default function FacilitiesScreen() {
   // 위치/지도
   const [region, setRegion] = useState(null);
+  const [initialRegion, setInitialRegion] = useState(null); // onMapReady용 초기값
   const mapRef = useRef(null);
 
   // 데이터
@@ -61,13 +66,11 @@ export default function FacilitiesScreen() {
     try {
       setRefreshing(true);
 
-      let x, y; // 경도/위도
+      let x, y; // 경도/위도 (백엔드 스펙: x=경도, y=위도)
       if (WEB_TEST) {
-        // ✅ 웹 테스트: 권한 팝업 없이 모의 좌표 사용
         x = MOCK_COORD.x;
         y = MOCK_COORD.y;
       } else {
-        // 네이티브: 권한 요청 → 실제 좌표
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
           Alert.alert('권한 필요', '위치 권한이 거부되어 편의시설을 불러올 수 없습니다.');
@@ -78,15 +81,22 @@ export default function FacilitiesScreen() {
         y = String(loc.coords.latitude);
       }
 
+      const yNum = toNum(y);
+      const xNum = toNum(x);
+      if (yNum == null || xNum == null) {
+        throw new Error('Invalid current location coords');
+      }
+
       const nextRegion = {
-        latitude: Number(y),
-        longitude: Number(x),
+        latitude: yNum,
+        longitude: xNum,
         latitudeDelta: 0.05,
         longitudeDelta: 0.05,
       };
       setRegion(nextRegion);
+      setInitialRegion((prev) => prev ?? nextRegion); // 최초 1회만 세팅
 
-      // 백엔드 스펙 유지: mountain_name은 빈 문자열로 전달 (현재 위치 기반만 사용)
+      // 백엔드 스펙 유지
       const data = await facilityService.getNearbyFacilities({
         mountain_name: "",
         location_x: x, // 경도
@@ -99,12 +109,6 @@ export default function FacilitiesScreen() {
         hospital: Array.isArray(data?.hospital) ? data.hospital : [],
         pharmacy: Array.isArray(data?.pharmacy) ? data.pharmacy : [],
       });
-
-      setTimeout(() => {
-        if (mapRef.current && typeof mapRef.current.animateToRegion === 'function') {
-          mapRef.current.animateToRegion(nextRegion, 600);
-        }
-      }, 50);
     } catch (e) {
       console.log('facilities load error:', e);
       Alert.alert('오류', '편의시설 데이터를 불러오지 못했습니다.');
@@ -121,18 +125,22 @@ export default function FacilitiesScreen() {
     })();
   }, [loadFromCurrentLocation]);
 
-  // 지도 마커 렌더링
+  // 지도 마커 렌더링 (유효 좌표만 표시)
   const markers = useMemo(() => {
     const arr = [];
     const pushMarkers = (catKey, list) => {
       if (!visibleCats[catKey]) return;
       list.forEach((p, idx) => {
+        const lat = toNum(p.location_y ?? p.mapY ?? p.latitude);
+        const lon = toNum(p.location_x ?? p.mapX ?? p.longitude);
+        if (lat == null || lon == null) return; // 안드로이드에서 특히 중요!
+
         arr.push(
           <Marker
             key={`${catKey}-${idx}`}
-            coordinate={{ latitude: Number(p.location_y), longitude: Number(p.location_x) }}
-            title={p.place_name}
-            description={p.address_name}
+            coordinate={{ latitude: lat, longitude: lon }}
+            title={p.place_name || p.placeName}
+            description={p.address_name || p.addressName}
             pinColor={PIN[catKey]}
           />
         );
@@ -184,8 +192,15 @@ export default function FacilitiesScreen() {
           <View style={styles.mapContainer}>
             <CompatMap
               ref={mapRef}
-              region={region}
+              initialRegion={initialRegion}   // 최초 렌더 안정화
+              region={region}                 // 이후에는 region으로 제어
               style={{ width: '100%', height: '100%', borderRadius: 10 }}
+              onMapReady={() => {
+                // 안드로이드에서 초기 타이밍 안정화
+                if (mapRef.current && typeof mapRef.current.animateToRegion === 'function') {
+                  mapRef.current.animateToRegion(region, 400);
+                }
+              }}
             >
               {/* 현재 위치 */}
               <Marker
@@ -251,8 +266,10 @@ function renderSectionCard({ typeKey, icon, title, items }) {
             <View key={i} style={styles.itemRow}>
               <Text style={styles.dotText}>•</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.itemText}>{p.place_name}</Text>
-                {!!p.address_name && <Text style={styles.addrText}>{p.address_name}</Text>}
+                <Text style={styles.itemText}>{p.place_name || p.placeName}</Text>
+                {!!(p.address_name || p.addressName) && (
+                  <Text style={styles.addrText}>{p.address_name || p.addressName}</Text>
+                )}
               </View>
             </View>
           ))

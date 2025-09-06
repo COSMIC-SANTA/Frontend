@@ -9,14 +9,24 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "config": {
+        "googleMapsApiKey": "AIzaSyCkHNadWU5CB1XCgXxLTxJcoBzlwFvAr7k"
+      },
+      "bundleIdentifier": "com.anonymous.santaapp"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCkHNadWU5CB1XCgXxLTxJcoBzlwFvAr7k"
+        }
+      },
+      "package": "com.anonymous.santaapp"
     },
     "web": {
       "bundler": "metro",

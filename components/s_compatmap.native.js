@@ -1,17 +1,27 @@
-// components/CompatMap.native.js
-import React from 'react';
-import MapView, { Marker as RNMarker } from 'react-native-maps';
+// components/s_compatmap.native.js
+import React, { forwardRef } from 'react';
+import MapView, { Marker as RNMarker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 /**
  * 네이티브(iOS/Android)용 맵 래퍼
- * - 웹에선 이 파일이 로드되지 않음(web 전용 파일이 대체)
+ * - Android에서는 Google Provider를 강제해 안정성 확보
+ * - iOS에서도 문제 없이 동작
  */
-export default function CompatMap({ region, style, children, ...rest }) {
+const CompatMap = forwardRef(({ style, children, ...rest }, ref) => {
   return (
-    <MapView style={style} initialRegion={region} {...rest}>
+    <MapView
+      ref={ref}
+      provider={PROVIDER_GOOGLE}
+      mapType="standard"
+      style={style}
+      {...rest}
+    >
       {children}
     </MapView>
   );
-}
+});
 
+export default CompatMap;
 export const Marker = RNMarker;
+export { PROVIDER_GOOGLE };
+
