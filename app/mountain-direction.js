@@ -1,5 +1,6 @@
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
+import axios from "axios";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -12,7 +13,7 @@ import {
   View
 } from "react-native";
 import { WebView } from "react-native-webview";
-import { mountainService, tourismService } from "../services/api.js";
+import { mountainService } from "../services/api.js";
 
 export default function MountainDirectionScreen() {
   const router = useRouter();
@@ -42,7 +43,7 @@ export default function MountainDirectionScreen() {
 
   useEffect(() => {
     (async () => {
-      console.log(`산이름 ${mountainName}`);
+      console.log(mountainName)
       const name = (mountainName ?? "").toString().trim();
       if (!name) {
         console.warn("[mountain XY] mountainName 없음");
@@ -59,6 +60,41 @@ export default function MountainDirectionScreen() {
     })();
     // 최초 1회만
   }, []);
+
+  const routeData2 = {
+    "origin" :{
+      "mapX": 127.10763058573032,
+      "mapY": 37.40246478787756
+    },
+
+    "destination": {
+      "type": "spot",
+      "name": "string",           // 관광지 이름 (예: "칠선계곡")
+      "location": "string",
+      "position": { "mapX": 127.1098265381582, "mapY": 37.394425724914576 }
+    }
+    ,
+    "mountain": {
+      "name": "지리산",
+      "location": "전북/경남",
+      "position": { "mapX": 127.17353858063272, "mapY": 37.3662968484953 }
+    },
+    "cafes": [
+      {
+        "type": "cafe",
+        "name": "카페",
+        "location": "카페 위치",
+        "position": { "mapX": 127.17353858063273 , "mapY": 37.3662968484953 }
+
+      }
+    ],
+
+    "restaurants": null,
+
+    "stays": null,
+
+    "spots": null
+  }
 
   // 선택된 목적지/현재위치/여행계획이 준비되면 최적경로 + Kakao Directions 호출
   useEffect(() => {
@@ -77,8 +113,8 @@ export default function MountainDirectionScreen() {
       await requestOptimalRoute(dest);
 
       // Kakao Directions
-      const route = await fetchKakaoRoute(currentLocation, { position: { mapX: dest.mapX, mapY: dest.mapY } });
-      if (route) setSelectedRoute(route);
+      // const route = await fetchKakaoRoute(currentLocation, { position: { mapX: dest.mapX, mapY: dest.mapY } });
+      // if (route) setSelectedRoute(route);
     })();
   }, [currentLocation, parsedTravelPlan, selectedDestination]);
 
@@ -124,20 +160,20 @@ export default function MountainDirectionScreen() {
   };
 
   // 카테고리/기존 type 값을 표준 type으로 정규화
-   // 카테고리/기존 type 값을 표준 type으로 정규화
   const mapCategoryToType = (categoryOrType, optionId) => {
-    if (optionId === 'mountain') return 'mountain';
+    if (optionId === "mountain") return "mountain";
     switch (categoryOrType) {
-      case '관광지': return 'spot';
-      case '맛집': return 'restaurant';
-      case '관광시설': return 'cafe';
-      case '숙박': return 'stay';
-      case 'mountain': return 'mountain';
+      case "관광지": return "spot";
+      case "맛집": return "restaurant";
+      case "관광시설": return "cafe";
+      case "숙박": return "stay";
+      case "mountain": return "mountain";
       default:
-        console.warn('알 수 없는 카테고리/타입:', categoryOrType, '→ 기본값 spot');
-        return 'spot';
+        console.warn("알 수 없는 카테고리/타입:", categoryOrType, "→ 기본값 spot");
+        return "spot";
     }
   };
+
   // 목적지 후보(산 + 선택 장소들)
   const getDestinationOptions = () => {
     const options = [];
@@ -190,7 +226,6 @@ export default function MountainDirectionScreen() {
     try {
       const { mountains = [] } = await mountainService.fetchMountainXY(name);
       const first = mountains[0];
-      console.log("산 이름 "+first.mountainName);
       console.log("산 x:"+first.position?.mapX)
       console.log("산 y:"+first.position?.mapY)
       if (!first?.position?.mapX || !first?.position?.mapY) return null;
@@ -239,21 +274,12 @@ export default function MountainDirectionScreen() {
           : null,
     };
 
-// 산 정보(있으면 포함)
-let mountainObj = null;
-if (mountainName) {
-  const m = await getMountainPosition(mountainName);
-  if (m && m.name) { // ← null 체크 추가
-    mountainObj = { 
-      name: m.name,
-      location: m.location, 
-      position: m.position 
-    };
-
-  } else {
-    console.warn('getMountainPosition에서 유효한 산 정보를 받지 못했습니다:', m);
-  }
-}
+    // 산 정보(있으면 포함)
+    let mountainObj = null;
+    if (mountainName) {
+      const m = await getMountainPosition(mountainName);
+      mountainObj = { name: m.name, location: m.location, position: m.position };
+    }
 
     // 카테고리별 분류
     const categorized = { tourist_spots: [], restaurants: [], cafes: [], stays: [] };
@@ -276,7 +302,7 @@ if (mountainName) {
 
     const normalize = (arr) => (arr.length ? arr : null);
 
-    console.log("최적 경로 요청 데이터에 들어갈 mountain", mountainObj)
+    console.log("최적 경로 요청 데이터에 들어갈 mountain",mountainObj)
     const routeData = {
       origin: currentLocation, // { mapX, mapY }
       destination,             // { name, location, type, position }
@@ -292,32 +318,32 @@ if (mountainName) {
   };
 
   // Kakao Mobility Directions API
-  const fetchKakaoRoute = async (origin, destination) => {
-    try {
-      if (!destination?.position?.mapX || !destination?.position?.mapY) {
-        console.warn("Kakao Directions: 목적지 좌표 없음");
-        return null;
-      }
-      const url =
-          `https://apis-navi.kakaomobility.com/v1/directions?origin=${origin.mapX},${origin.mapY}` +
-          `&destination=${destination.position.mapX},${destination.position.mapY}&priority=RECOMMEND`;
-
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: "KakaoAK 54aa389e0a9aa1761e2ec162045756ea",
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await response.json();
-      console.log("카카오 경로 응답:", data);
-      return data.routes?.[0] ?? null;
-    } catch (error) {
-      console.error("카카오 경로 요청 실패:", error);
-      return null;
-    }
-  };
+  // const fetchKakaoRoute = async (origin, destination) => {
+  //   try {
+  //     if (!destination?.position?.mapX || !destination?.position?.mapY) {
+  //       console.warn("Kakao Directions: 목적지 좌표 없음");
+  //       return null;
+  //     }
+  //     const url =
+  //         `https://apis-navi.kakaomobility.com/v1/directions?origin=${origin.mapX},${origin.mapY}` +
+  //         `&destination=${destination.position.mapX},${destination.position.mapY}&priority=RECOMMEND`;
+  //
+  //     const response = await fetch(url, {
+  //       method: "GET",
+  //       headers: {
+  //         Authorization: "KakaoAK 54aa389e0a9aa1761e2ec162045756ea",
+  //         "Content-Type": "application/json",
+  //       },
+  //     });
+  //
+  //     const data = await response.json();
+  //     console.log("카카오 경로 응답:", data);
+  //     return data.routes?.[0] ?? null;
+  //   } catch (error) {
+  //     console.error("카카오 경로 요청 실패:", error);
+  //     return null;
+  //   }
+  // };
 
   // 최적 경로 요청
   const requestOptimalRoute = async (finalDestination) => {
@@ -327,9 +353,22 @@ if (mountainName) {
       return;
     }
 
+    const apiClientJson = axios.create({
+      baseURL: 'http://api-santa.com',
+      timeout: 10000,
+      headers: { "Content-Type": "application/json" },
+    });
+
     try {
       setLoading(true);
-      const result = await tourismService.getOptimalRoute(routeData);
+      const response = await apiClientJson.post("/api/mountains/optimalRoute", routeData,);
+      const result  ={
+        success: true,
+        data: response,
+        message: "최적 경로를 성공적으로 계산했습니다."
+      }
+      console.log("찐 응답", result);
+
       if (result.success) {
         setOptimalRouteData(result.data);
         console.log("최적 경로 응답:", result.data);
