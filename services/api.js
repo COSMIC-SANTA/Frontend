@@ -238,6 +238,43 @@ export const loginService = {
   }
 };
 
+export const planService = {
+  // 함수명을 통일하고 에러 처리 개선
+  savePlan: async (plan) => {
+    try {
+      console.log("여행 계획 저장 요청:", plan);
+      const response = await apiClientJson.post("/api/plan", plan);
+      console.log("저장 응답:", response);
+      
+      return {
+        success: true,
+        data: response.data,
+        message: "여행 계획이 성공적으로 저장되었습니다."
+      };
+    } catch (error) {
+      console.error("여행 계획 저장 실패:", error);
+      
+      if (error.response) {
+        return {
+          success: false,
+          error: error.response.data?.message || "서버 오류가 발생했습니다.",
+          status: error.response.status
+        };
+      } else if (error.request) {
+        return {
+          success: false,
+          error: "서버에 연결할 수 없습니다. 네트워크를 확인해주세요."
+        };
+      } else {
+        return {
+          success: false,
+          error: "요청 처리 중 오류가 발생했습니다."
+        };
+      }
+    }
+  }
+};
+
 // 여행 목록 소개
 
 export const tourismService = {

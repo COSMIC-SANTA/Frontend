@@ -6,14 +6,19 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Alert,
+  Dimensions,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from "react-native";
+import { Calendar } from 'react-native-calendars';
 import { WebView } from "react-native-webview";
 import { mountainService } from "../services/api.js";
+
+const { width, height } = Dimensions.get('window');
 
 export default function MountainDirectionScreen() {
   const router = useRouter();
@@ -26,6 +31,27 @@ export default function MountainDirectionScreen() {
   const [parsedTravelPlan, setParsedTravelPlan] = useState([]);
   const [optimalRouteData, setOptimalRouteData] = useState(null);
   const [selectedDestination, setSelectedDestination] = useState(null); // { name, location, mapX?, mapY?, ... }
+
+
+  const [mapRegion, setMapRegion] = useState(null);
+  const [routeCoordinates, setRouteCoordinates] = useState([]);
+  const [mapRef, setMapRef] = useState(null);
+
+  // 최종 경로 데이터를 저장할 state 추가
+  const [finalRouteData, setFinalRouteData] = useState(null);
+
+    // 모달 상태 추가
+  const [modalVisible, setModalVisible] = useState(false);
+
+    // 시작 버튼 클릭 시 모달 띄우기
+  const handleStartButtonPress = () => {
+    setModalVisible(true);
+  };
+
+  // 모달 닫기
+  const closeModal = () => {
+    setModalVisible(false);
+  };
 
   // 전달받은 여행계획 파싱 + 현재 위치 획득
   useEffect(() => {
@@ -60,6 +86,145 @@ export default function MountainDirectionScreen() {
     })();
     // 최초 1회만
   }, []);
+
+    // 경로 정보를 렌더링하는 함수
+  const renderRouteTimeline = () => {
+    if (!optimalRouteData) {
+      return (
+        <View style={styles.noRouteContainer}>
+          <Text style={[styles.noRouteText, { color: themeColors.text }]}>
+            목적지를 선택하고 최적 경로를 계산해주세요
+          </Text>
+        </View>
+      );
+    }
+
+    const routeSteps = generateRouteSteps();
+    const totalDistance = optimalRouteData.data?.distance 
+      ? Math.round(optimalRouteData.data.distance / 1000) 
+      : routeSteps.reduce((sum, step) => sum + step.distance, 0);
+    
+    const estimatedTime = optimalRouteData.data?.duration
+      ? Math.round(optimalRouteData.data.duration / 60)
+      : Math.round(totalDistance * 2); // 대략적인 계산 (시속 30km 기준)
+
+    return (
+      <View style={styles.routeTimelineContainer}>
+        {/* 경로 요약 정보 */}
+        <View style={[styles.routeSummary, { backgroundColor: themeColors.card }]}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>총 거리</Text>
+            <Text style={[styles.summaryValue, { color: "#4CAF50" }]}>{totalDistance}km</Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>예상 시간</Text>
+            <Text style={[styles.summaryValue, { color: "#FF9800" }]}>{estimatedTime}분</Text>
+          </View>
+          {optimalRouteData.data?.taxi && (
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>택시비</Text>
+              <Text style={[styles.summaryValue, { color: "#2196F3" }]}>
+                {optimalRouteData.data.taxi.toLocaleString()}원
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* 경로 타임라인 */}
+        <View style={styles.timelineContainer}>
+          {routeSteps.map((step, index) => {
+            const isLast = index === routeSteps.length - 1;
+            
+            return (
+              <View key={step.id} style={styles.timelineItem}>
+                {/* 타임라인 라인과 점 */}
+                <View style={styles.timelineLineContainer}>
+                  <View style={[
+                    styles.timelineDot, 
+                    {
+                      backgroundColor: step.isStart ? "#4CAF50" : 
+                                     step.isDestination ? "#F44336" : 
+                                     "#FF9800"
+                    }
+                  ]}>
+                    <Text style={styles.timelineDotText}>{step.icon}</Text>
+                  </View>
+                  {!isLast && <View style={styles.timelineLine} />}
+                </View>
+
+                {/* 경로 정보 */}
+                <View style={[styles.timelineContent, { backgroundColor: themeColors.card }]}>
+                  <View style={styles.timelineHeader}>
+                    <Text style={[styles.timelineTitle, { color: themeColors.text }]}>
+                      {step.name}
+                    </Text>
+                    {step.distance > 0 && (
+                      <View style={styles.distanceBadge}>
+                        <Text style={styles.distanceText}>{step.distance}km</Text>
+                      </View>
+                    )}
+                  </View>
+                  
+                  <Text style={[styles.timelineSubtitle, { color: themeColors.text, opacity: 0.7 }]}>
+                    {step.location}
+                  </Text>
+
+                  {/* 이동 정보 (마지막이 아닌 경우) */}
+                  {!isLast && step.distance > 0 && (
+                    <View style={styles.travelInfo}>
+                      <Text style={[styles.travelText, { color: "#666" }]}>
+                        ↓ {step.distance}km • 약 {Math.round(step.distance * 2)}분
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* 경로 액션 버튼 */}
+        <View style={styles.routeActions}>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.startRouteButton]}
+            onPress={() => {
+              setSelectedRoute({data: optimalRouteData.data});
+              console.log(selectedRoute.data)
+              handleStartNavigation();
+            }}
+          >
+            <Text style={styles.startRouteButtonText}>이 경로로 시작</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  // 지도 영역 계산 함수
+  const calculateMapRegion = (destinations) => {
+    if (!currentLocation) return null;
+
+    const coordinates = [currentLocation, ...destinations];
+    const latitudes = coordinates.map(coord => parseFloat(coord.mapY || coord.latitude));
+    const longitudes = coordinates.map(coord => parseFloat(coord.mapX || coord.longitude));
+
+    const minLat = Math.min(...latitudes);
+    const maxLat = Math.max(...latitudes);
+    const minLng = Math.min(...longitudes);
+    const maxLng = Math.max(...longitudes);
+
+    const midLat = (minLat + maxLat) / 2;
+    const midLng = (minLng + maxLng) / 2;
+    const deltaLat = (maxLat - minLat) * 1.2;
+    const deltaLng = (maxLng - minLng) * 1.2;
+
+    return {
+      latitude: midLat,
+      longitude: midLng,
+      latitudeDelta: Math.max(deltaLat, 0.01),
+      longitudeDelta: Math.max(deltaLng, 0.01),
+    };
+  };
 
   const routeData2 = {
     "origin" :{
@@ -118,25 +283,6 @@ export default function MountainDirectionScreen() {
     })();
   }, [currentLocation, parsedTravelPlan, selectedDestination]);
 
-  const routes = [
-    {
-      id: 1,
-      duration: "2h 3.6km",
-      cost: "245,050원",
-      type: "taxi",
-      description: "가장 빠른 경로",
-      steps: ["출발지에서 택시 이용", "목적지까지 직행", "도보로 최종 목적지 도착"],
-    },
-    {
-      id: 2,
-      duration: "3h 08분",
-      cost: "256,050원",
-      type: "public",
-      description: "대중교통 이용",
-      steps: ["지하철 → 버스 환승", "대중교통으로 목적지 이동", "도보로 최종 목적지 도착"],
-    },
-  ];
-
   const handleRouteSelect = (route) => setSelectedRoute(route);
 
   const getCurrentLocation = async () => {
@@ -177,16 +323,16 @@ export default function MountainDirectionScreen() {
   // 목적지 후보(산 + 선택 장소들)
   const getDestinationOptions = () => {
     const options = [];
-    options.push({
-      id: "mountain",
-      type: "mountain",
-      category: "산",
-      name: mountainName || "목적지 산",
-      location: location || "산 위치",
-      icon: "🏔️",
-      color: "#4CAF50",
-      // mapX/mapY는 선택 시에 좌표 조회 후 주입
-    });
+    // options.push({
+    //   id: "mountain",
+    //   type: "mountain",
+    //   category: "산",
+    //   name: mountainName || "목적지 산",
+    //   location: location || "산 위치",
+    //   icon: "🏔️",
+    //   color: "#4CAF50",
+    //   // mapX/mapY는 선택 시에 좌표 조회 후 주입
+    // });
     parsedTravelPlan.forEach((item, index) => {
       options.push({
         id: `place_${index}`,
@@ -317,34 +463,6 @@ export default function MountainDirectionScreen() {
     return routeData;
   };
 
-  // Kakao Mobility Directions API
-  // const fetchKakaoRoute = async (origin, destination) => {
-  //   try {
-  //     if (!destination?.position?.mapX || !destination?.position?.mapY) {
-  //       console.warn("Kakao Directions: 목적지 좌표 없음");
-  //       return null;
-  //     }
-  //     const url =
-  //         `https://apis-navi.kakaomobility.com/v1/directions?origin=${origin.mapX},${origin.mapY}` +
-  //         `&destination=${destination.position.mapX},${destination.position.mapY}&priority=RECOMMEND`;
-  //
-  //     const response = await fetch(url, {
-  //       method: "GET",
-  //       headers: {
-  //         Authorization: "KakaoAK 54aa389e0a9aa1761e2ec162045756ea",
-  //         "Content-Type": "application/json",
-  //       },
-  //     });
-  //
-  //     const data = await response.json();
-  //     console.log("카카오 경로 응답:", data);
-  //     return data.routes?.[0] ?? null;
-  //   } catch (error) {
-  //     console.error("카카오 경로 요청 실패:", error);
-  //     return null;
-  //   }
-  // };
-
   // 최적 경로 요청
   const requestOptimalRoute = async (finalDestination) => {
     const routeData = await formatRouteData(finalDestination); // ✅ async/await
@@ -445,6 +563,91 @@ export default function MountainDirectionScreen() {
     );
   };
 
+  // 두 지점 간의 거리를 계산하는 함수 (haversine formula)
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // 지구의 반지름 (km)
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distance = R * c;
+  return Math.round(distance); // km 단위로 반올림
+};
+
+// 최적 경로 데이터를 기반으로 경유지별 경로 정보를 생성하는 함수
+const generateRouteSteps = () => {
+  if (!optimalRouteData || !currentLocation || !selectedDestination) {
+    return [];
+  }
+
+  const steps = [];
+  let prevPoint = {
+    name: "현재 위치",
+    x: currentLocation.mapX,
+    y: currentLocation.mapY,
+    icon: "📍"
+  };
+
+  // 출발지 추가
+  steps.push({
+    id: 'start',
+    name: prevPoint.name,
+    location: "출발지",
+    icon: prevPoint.icon,
+    distance: 0,
+    isStart: true
+  });
+
+  // waypoints가 있으면 경유지로 추가
+  if (optimalRouteData.data?.waypoints && optimalRouteData.data.waypoints.length > 0) {
+    optimalRouteData.data.waypoints.forEach((waypoint, index) => {
+      const distance = calculateDistance(prevPoint.y, prevPoint.x, waypoint.y, waypoint.x);
+      
+      steps.push({
+        id: `waypoint_${index}`,
+        name: waypoint.name,
+        location: "경유지",
+        distance: distance,
+        isWaypoint: true
+      });
+
+      prevPoint = waypoint;
+    });
+  }
+
+  const getWaypointIcon = (name) => {
+  if (name.includes('카페') || name.includes('커피')) return "☕";
+  if (name.includes('맛집') || name.includes('식당')) return "🍽️";
+  if (name.includes('관광') || name.includes('명소')) return "🏞️";
+  if (name.includes('숙박') || name.includes('호텔')) return "🏨";
+  return "📍";
+};
+
+  // 최종 목적지 추가
+  if (selectedDestination.mapX && selectedDestination.mapY) {
+    const finalDistance = calculateDistance(
+      prevPoint.y, 
+      prevPoint.x, 
+      selectedDestination.mapY, 
+      selectedDestination.mapX
+    );
+
+    steps.push({
+      id: 'destination',
+      name: selectedDestination.name,
+      location: selectedDestination.location,
+      icon: selectedDestination.icon || "🎯",
+      distance: finalDistance,
+      isDestination: true
+    });
+  }
+
+  return steps;
+};
+
   const renderTravelPlanSummary = () => {
     if (parsedTravelPlan.length === 0) return null;
     return (
@@ -467,115 +670,130 @@ export default function MountainDirectionScreen() {
     );
   };
 
+    const handleDecideRoute = async () => {
+    if (!selectedRoute || !selectedDestination || !optimalRouteData) {
+      Alert.alert("알림", "먼저 경로를 선택해주세요.");
+      return;
+    }
+
+    try {
+      // formatRouteData를 사용하여 기본 경로 데이터 생성
+      const baseRouteData = await formatRouteData(selectedDestination);
+      console.log("baseRouteData ", baseRouteData);
+      
+      if (!baseRouteData) {
+        Alert.alert("오류", "경로 데이터를 생성할 수 없습니다.");
+        return;
+      }
+    } catch (error) {
+      console.error("경로 데이터 생성 중 오류:", error);
+      Alert.alert("오류", "경로 데이터를 준비하는 중 오류가 발생했습니다.");
+    }
+  };
+
   return (
-      <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-        {/* 헤더 */}
-        <View style={[styles.header, { backgroundColor: "#4CAF50" }]}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>🧭 산길 동행</Text>
-        </View>
-
-        <ScrollView style={styles.scrollContainer}>
-          {/* 목적지 선택기 */}
-          {renderDestinationSelector()}
-
-          {/* 여행 계획 요약 */}
-          {renderTravelPlanSummary()}
-
-          {/* 목적지 정보 */}
-          <View style={[styles.destinationContainer, { backgroundColor: themeColors.card }]}>
-            <Text style={[styles.destinationTitle, { color: themeColors.text }]}>
-              📍 {selectedDestination ? `${selectedDestination.name}으로` : "목적지를 선택하여"} 가는 길 안내
-            </Text>
-            <Text style={[styles.destinationSubtitle, { color: themeColors.text }]}>
-              현재 위치에서 목적지까지 최적의 경로를 안내해드립니다
-            </Text>
-          </View>
-
-          {/* 지도 영역 */}
-          <View style={styles.mapContainer}>
-            {selectedDestination && selectedDestination.mapX != null && selectedDestination.mapY != null ? (
-                <WebView
-                    source={{
-                      uri: `https://map.kakao.com/link/map/${selectedDestination.name},${selectedDestination.mapY},${selectedDestination.mapX}`,
-                    }}
-                    style={{ flex: 1 }}
-                />
-            ) : (
-                <View style={[styles.mapPlaceholder, { backgroundColor: themeColors.card }]}>
-                  <Text style={{ textAlign: "center", marginTop: 80 }}>목적지를 선택하세요</Text>
-                </View>
-            )}
-          </View>
-
-          {/* 경로 선택 */}
-          <View style={styles.routesContainer}>
-            <Text style={[styles.routesTitle, { color: themeColors.text }]}>경로 선택</Text>
-            {routes.map((route) => (
-                <TouchableOpacity
-                    key={route.id}
-                    style={[
-                      styles.routeCard,
-                      {
-                        backgroundColor: themeColors.card,
-                        borderColor: selectedRoute?.id === route.id ? "#4CAF50" : themeColors.border,
-                        borderWidth: selectedRoute?.id === route.id ? 2 : 1,
-                        opacity: selectedDestination ? 1 : 0.5,
-                      },
-                    ]}
-                    onPress={() => selectedDestination && handleRouteSelect(route)}
-                    disabled={!selectedDestination}
-                >
-                  <View style={styles.routeHeader}>
-                    <Text style={[styles.routeDuration, { color: themeColors.text }]}>{route.duration}</Text>
-                    <Text style={[styles.routeCost, { color: "#4CAF50" }]}>{route.cost}</Text>
-                  </View>
-                  <Text style={[styles.routeDescription, { color: themeColors.text }]}>{route.description}</Text>
-                  <View style={styles.stepsContainer}>
-                    {route.steps.map((step, index) => (
-                        <View key={index} style={styles.stepItem}>
-                          <View style={[styles.stepDot, { backgroundColor: "#4CAF50" }]} />
-                          <Text style={[styles.stepText, { color: themeColors.text }]}>{step}</Text>
-                        </View>
-                    ))}
-                  </View>
-                  {selectedRoute?.id === route.id && (
-                      <View style={styles.selectedIndicator}>
-                        <Text style={styles.selectedText}>✓ 선택됨</Text>
-                      </View>
-                  )}
-                </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
-
-        {/* 하단 액션 버튼 */}
-        <View style={[styles.actionContainer, { backgroundColor: themeColors.card }]}>
-          <TouchableOpacity style={[styles.laterButton, { borderColor: themeColors.border }]} onPress={() => router.back()}>
-            <Text style={[styles.laterButtonText, { color: themeColors.text }]}>나중에</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-              style={[
-                styles.startButton,
-                {
-                  backgroundColor: selectedRoute && selectedDestination ? "#4CAF50" : "#ccc",
-                  opacity: selectedRoute && selectedDestination ? 1 : 0.5,
-                },
-              ]}
-              onPress={handleStartNavigation}
-              disabled={!selectedRoute || !selectedDestination}
-          >
-            <Text style={styles.startButtonText}>🚀 시작</Text>
-          </TouchableOpacity>
-        </View>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+      {/* 헤더 */}
+      <View style={[styles.header, { backgroundColor: "#4CAF50" }]}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>🧭 산길 동행</Text>
       </View>
+
+      <ScrollView style={styles.scrollContainer}>
+        {/* 목적지 선택기 */}
+        {renderDestinationSelector()}
+
+        {/* 여행 계획 요약 */}
+        {renderTravelPlanSummary()}
+
+        {/* 목적지 정보 */}
+        <View style={[styles.destinationContainer, { backgroundColor: themeColors.card }]}>
+          <Text style={[styles.destinationTitle, { color: themeColors.text }]}>
+            📍 {selectedDestination ? `${selectedDestination.name}으로` : "목적지를 선택하여"} 가는 길 안내
+          </Text>
+          <Text style={[styles.destinationSubtitle, { color: themeColors.text }]}>
+            현재 위치에서 목적지까지 최적의 경로를 안내해드립니다
+          </Text>
+        </View>
+
+        {/* 지도 영역 */}
+        <View style={styles.mapContainer}>
+          {selectedDestination && selectedDestination.mapX != null && selectedDestination.mapY != null ? (
+            <WebView
+              source={{
+                uri: `https://map.kakao.com/link/map/${selectedDestination.name},${selectedDestination.mapY},${selectedDestination.mapX}`,
+              }}
+              style={{ flex: 1 }}
+            />
+          ) : (
+            <View style={[styles.mapPlaceholder, { backgroundColor: themeColors.card }]}>
+              <Text style={{ textAlign: "center", marginTop: 80 }}>목적지를 선택하세요</Text>
+            </View>
+          )}
+        </View>
+
+        {/* 경로 선택 -> 경로 타임라인으로 변경 */}
+        <View style={styles.routesContainer}>
+          <Text style={[styles.routesTitle, { color: themeColors.text }]}>📍 최적 경로</Text>
+          {renderRouteTimeline()}
+        </View>
+      </ScrollView>
+
+      {/* 하단 액션 버튼 */}
+      <View style={[styles.actionContainer, { backgroundColor: themeColors.card }]}>
+        <TouchableOpacity style={[styles.laterButton, { borderColor: themeColors.border }]} onPress={() => router.back()}>
+          <Text style={[styles.laterButtonText, { color: themeColors.text }]}>나중에</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.startButton,
+            {
+              backgroundColor: selectedRoute && selectedDestination ? "#4CAF50" : "#ccc",
+              opacity: selectedRoute && selectedDestination ? 1 : 0.5,
+            },
+          ]}
+          onPress={handleStartButtonPress}
+          disabled={!selectedRoute || !selectedDestination}
+        >
+          <Text style={styles.startButtonText}>🚀 시작</Text>
+        </TouchableOpacity>
+      </View>
+
+            {/* 모달창 */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={closeModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: themeColors.card }]}>
+            <Calendar
+            onDayPress={(day) => {
+              console.log('선택된 날', day);
+            }}
+            monthFormat={'yyyy MM'}
+            hideExtraDays={true}
+            firstDay={1}
+            />
+            
+            <TouchableOpacity
+              style={[styles.modalCloseButton, { backgroundColor: "#4CAF50" }]}
+              onPress={closeModal}
+            >
+              <Text style={styles.modalCloseButtonText}>확인</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const handleStartNavigation = () => {
-  Alert.alert("네비게이션 시작", "선택한 경로로 안내를 시작합니다.");
+  Alert.alert("경로 선택", "경로가 선택되었습니다.");
 };
 
 const styles = StyleSheet.create({
@@ -630,4 +848,179 @@ const styles = StyleSheet.create({
   laterButtonText: { fontSize: 16, fontWeight: "600" },
   startButton: { flex: 1, paddingVertical: 15, borderRadius: 12, alignItems: "center" },
   startButtonText: { color: "white", fontSize: 16, fontWeight: "bold" },
+    // 새로 추가되는 스타일들
+  routeTimelineContainer: {
+    marginTop: 10,
+  },
+  noRouteContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 100,
+  },
+  noRouteText: {
+    fontSize: 16,
+    textAlign: 'center',
+    opacity: 0.7,
+  },
+  routeSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 15,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  timelineContainer: {
+    paddingHorizontal: 10,
+  },
+  timelineItem: {
+    flexDirection: 'row',
+    marginBottom: 15,
+  },
+  timelineLineContainer: {
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  timelineDot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  timelineDotText: {
+    fontSize: 16,
+  },
+  timelineLine: {
+    width: 2,
+    height: 60,
+    backgroundColor: '#ddd',
+    marginTop: 5,
+  },
+  timelineContent: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  timelineHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  timelineTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    flex: 1,
+  },
+  distanceBadge: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  distanceText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  timelineSubtitle: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  travelInfo: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  travelText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  routeActions: {
+    flexDirection: 'row',
+    marginTop: 20,
+    gap: 10,
+  },
+  actionButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  editButton: {
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  editButtonText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  startRouteButton: {
+    backgroundColor: '#4CAF50',
+  },
+  startRouteButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+    modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: width * 0.5,
+    padding: 30,
+    borderRadius: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalText: {
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  modalCloseButton: {
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 25,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  modalCloseButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });
