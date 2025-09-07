@@ -416,7 +416,7 @@ export default function MainScreen() {
         >
           <View style={styles.wrapper}>
             <Text style={[styles.greeting, { fontSize: R.f(34), marginTop: R.f(28), marginLeft: R.f(24) }]}>
-              Hi, Daniel!
+              Hi, Everyone!
             </Text>
             <Text style={[styles.text2, { fontSize: R.f(18), marginLeft: R.f(24) }]}>
               what is the main purpose of hiking?

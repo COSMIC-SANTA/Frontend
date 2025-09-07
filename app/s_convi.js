@@ -309,17 +309,56 @@ const styles = StyleSheet.create({
 
   // 카테고리 토글
   filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 4, marginTop: 12, marginBottom: 6 },
-  chip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eee', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16 },
+  chip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eee', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth:3, },
   chipOn: { backgroundColor: '#fff' },
   chipText: { fontWeight: '700' },
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: 6 },
 
   // 리스트
-  listContainer: { backgroundColor: '#FFF9E5', paddingTop: 10, paddingHorizontal: 20, position: 'relative', marginTop: 20, marginBottom: 20 },
-  outerScroll: { flex: 1 },
-  card: { backgroundColor: '#FFF9E5', borderRadius: 20, marginBottom: 20, padding: 15, height: 200, borderWidth: 5, borderColor: '#1d3b1d' },
+  listContainer: {
+    backgroundColor: 'white',
+    paddingTop: 30,
+    paddingHorizontal: 20,
+    position: 'relative',
+    marginTop: 20,
+    marginBottom: 20,
+    borderRadius: 20, 
+    borderWidth: 5,
+    borderColor: 'black',
+
+
+    
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  // ✅ 카드(리스트 내부 박스)
+  card: {
+    backgroundColor: '#FFFFFF', 
+    borderRadius: 20,
+    marginBottom: 20,
+    padding: 15,
+    height: 200,
+    borderWidth: 5,
+    borderColor: '#1d3b1d',
+
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4, // 안드로이드
+  },
+
+  innerScroll: {
+    flex: 1,
+    backgroundColor: '#FFFFFF', 
+  },
+
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  innerScroll: { flex: 1 },
+
 
   itemRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, marginLeft: 12 },
   dotText: { marginRight: 6, color: 'black', fontSize: 22, lineHeight: 26 },
