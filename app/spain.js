@@ -1,3 +1,4 @@
+// app/MainScreen.js
 import {
   ScrollView,
   View,
@@ -15,8 +16,8 @@ import Line from "../assets/images/Line_1.svg";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "expo-router";
 import BottomNavBar from "./s_navigationbar";
-import { mountainService, weatherService } from "../services/api";
-import { Animated, Platform } from "react-native";
+import apiClient, { mountainService, weatherService } from "../services/api";
+import { Animated } from "react-native";
 
 const { width } = Dimensions.get("window");
 const CATEGORIES = ["popular", "high", "low\nmountain", "activity\n(leisure)"];
@@ -153,6 +154,21 @@ function BannerCard({ item }) {
   );
 }
 
+/** 좌표 보강: 이름으로 다시 검색해서 position.mapX/mapY 우선 사용(0,0도 무효로 처리) */
+async function fetchCoordsByName(name) {
+  const res = await apiClient.get("/api/mountains/search", {
+    params: { mountainName: name },
+  });
+  const payload = res?.data;
+  const list = Array.isArray(payload) ? payload : payload?.mountains ?? [];
+  const found =
+    list.find((m) => (m.mountainName ?? m.name) === name) || list[0] || {};
+  const pos = found?.position ?? found?.pos ?? {};
+  const x = Number(pos?.mapX ?? found?.mapX);
+  const y = Number(pos?.mapY ?? found?.mapY);
+  return { ok: Number.isFinite(x) && Number.isFinite(y) && !(x === 0 && y === 0), mapX: x, mapY: y };
+}
+
 export default function MainScreen() {
   const router = useRouter();
 
@@ -236,14 +252,26 @@ export default function MainScreen() {
     setWeatherLoading(true);
 
     try {
-      const res = await weatherService.getCurrentWeather({
-        mapX: Number(item.mapX),
-        mapY: Number(item.mapY),
-      });
+      // 1) 기본 좌표 파싱
+      let x = Number(item.mapX);
+      let y = Number(item.mapY);
+
+      // 2) 좌표가 없거나 0,0이면 보강
+      if (!Number.isFinite(x) || !Number.isFinite(y) || (x === 0 && y === 0)) {
+        const { ok, mapX, mapY } = await fetchCoordsByName(item.mountainName);
+        if (!ok) throw new Error("좌표를 찾지 못했습니다.");
+        x = mapX; y = mapY;
+      }
+
+      // 3) UI 상태에도 보강 좌표 반영
+      setSelectedMountain((prev) => ({ ...(prev || item), mapX: x, mapY: y }));
+
+      // 4) 날씨 호출(POST)
+      const res = await weatherService.getCurrentWeather({ mapX: x, mapY: y });
       setWeather(res);
     } catch (e) {
       if (e.name !== "CanceledError" && e.name !== "AbortError") {
-        setWeatherError("날씨 정보를 불러오지 못했습니다.");
+        setWeatherError(e.message || "날씨 정보를 불러오지 못했습니다.");
       }
     } finally {
       setWeatherLoading(false);
@@ -368,12 +396,13 @@ export default function MainScreen() {
                 placeholder="산 이름을 입력하세요 (예: 지리산, 설악산)"
                 placeholderTextColor="#9BAA8C"
                 returnKeyType="search"
+                autoCapitalize="none"
               />
               {searching && <ActivityIndicator size="small" />}
             </View>
             {searchError ? <Text style={styles.errorText}>{searchError}</Text> : null}
 
-            {/* 자동완성 드롭다운 (FlatList → map으로 변경: ScrollView 중첩 경고 방지) */}
+            {/* 자동완성 드롭다운 */}
             {candidates.length > 0 && (
               <View style={styles.dropdown}>
                 {candidates.map((item, idx) => (
@@ -405,7 +434,11 @@ export default function MainScreen() {
 
               {selectedMountain && (
                 <Text style={styles.coordText}>
-                  ({Number(selectedMountain.mapY).toFixed(5)}, {Number(selectedMountain.mapX).toFixed(5)})
+                  {Number.isFinite(Number(selectedMountain.mapY)) &&
+                  Number.isFinite(Number(selectedMountain.mapX)) &&
+                  !(Number(selectedMountain.mapX) === 0 && Number(selectedMountain.mapY) === 0)
+                    ? `(${Number(selectedMountain.mapY).toFixed(5)}, ${Number(selectedMountain.mapX).toFixed(5)})`
+                    : "(좌표 없음)"}
                 </Text>
               )}
 
@@ -427,15 +460,11 @@ export default function MainScreen() {
                       name={
                         weather.weatherCode === "RAIN"
                           ? "rainy-outline"
-                          : weather.weatherCode === "CLEAR"
-                          ? "sunny-outline"
-                          : weather.weatherCode === "CLEAN"
+                          : weather.weatherCode === "CLEAR" || weather.weatherCode === "CLEAN"
                           ? "sunny-outline"
                           : weather.weatherCode === "SNOW"
                           ? "snow-outline"
-                          : weather.weatherCode === "RAIN_SNOW"
-                          ? "rainy-outline"
-                          : weather.weatherCode === "RAINDROPS"
+                          : weather.weatherCode === "RAIN_SNOW" || weather.weatherCode === "RAINDROPS"
                           ? "rainy-outline"
                           : weather.weatherCode === "FOG"
                           ? "cloudy-outline"

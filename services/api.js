@@ -75,15 +75,44 @@ export const weatherService = {
     }));
   },
 
-  // 좌표로 현재 날씨 조회
+// services/api.js 안의 weatherService.getCurrentWeather 교체
 getCurrentWeather: async ({ mapX, mapY }, { signal } = {}) => {
-     const res = await apiClient.post(
-      "/api/main/weather",
-      { mapX: Number(mapX), mapY: Number(mapY) }, // JSON body
-      { signal }
-       );
-     return res.data; // 인터셉터로 { temperature, weatherCode }만 남음
+  const x = Number(mapX);
+  const y = Number(mapY);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    throw new Error(`Invalid coords: mapX=${mapX}, mapY=${mapY}`);
+  }
+
+  // 서버가 GET 미지원 → POST + JSON body
+  const res = await apiClient.post(
+    "/api/main/weather",
+    { mapX: x, mapY: y },
+    { signal }
+  );
+
+  // 인터셉터 때문에 res = { message, data }
+  const rows = Array.isArray(res?.data) ? res.data : [];
+  if (rows.length === 0) return null;
+
+  // 현재 시간과 같은 HH:00 선택(없으면 첫 번째)
+  const nowHH = `${String(new Date().getHours()).padStart(2, "0")}:00`;
+  const cur = rows.find((r) => r?.time === nowHH) || rows[0];
+
+  // 서버 코드 정규화: NO_RAIN + 구름상태 → CLEAR/CLOUDY
+  const normalizeCode = (code, gloomy) => {
+    if (code === "RAIN") return "RAIN";
+    if (code === "NO_RAIN") return gloomy === "NO_CLOUD" ? "CLEAR" : "CLOUDY";
+    return code || null;
+  };
+
+  return {
+    time: cur?.time ?? null,
+    temperature: typeof cur?.temperature === "number" ? cur.temperature : null,
+    weatherCode: normalizeCode(cur?.weatherCode, cur?.gloomyLevel),
+    gloomyLevel: cur?.gloomyLevel ?? null,
+  };
 },
+
 };
 
 // 3. 주변 편의시설 조회
