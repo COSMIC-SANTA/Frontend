@@ -75,7 +75,33 @@ const apiClientJson = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// 요청 인터셉터: 토큰이 있으면 Authorization 헤더에 추가
+// 요청 인터셉터 추가 (토큰을 헤더에 포함)
+apiClientJson.interceptors.request.use(
+  async (config) => {
+    try {
+      // AsyncStorage에서 토큰 가져오기
+      const token = await AsyncStorage.getItem('authToken');
+      
+      if (token) {
+        // Authorization 헤더에 Bearer 토큰 추가
+        config.headers.Authorization = `Bearer ${token}`;
+        console.log(`[API JSON Request] Authorization 헤더 추가됨: Bearer ${token.substring(0, 20)}...`);
+      } else {
+        console.log(`[API JSON Request] 토큰이 없음 - ${config.method?.toUpperCase()} ${config.url}`);
+      }
+    } catch (error) {
+      console.error('[API JSON Request] 토큰 가져오기 실패:', error);
+    }
+    
+    return config;
+  },
+  (error) => {
+    console.error('[API JSON Request] 요청 설정 오류:', error);
+    return Promise.reject(error);
+  }
+);
+
+//기존 응답 인터셉터
 apiClientJson.interceptors.response.use(
   (res) => {
     console.log(`[API JSON Response] ${res.status} ${res.config.method?.toUpperCase()} ${res.config.url}`);
@@ -243,6 +269,12 @@ export const planService = {
   savePlan: async (plan) => {
     try {
       console.log("여행 계획 저장 요청:", plan);
+
+      // 토큰 확인 로그 추가
+      const token = await AsyncStorage.getItem('authToken');
+      console.log("현재 저장된 토큰:", token ? `${token.substring(0, 20)}...` : "없음");
+
+
       const response = await apiClientJson.post("/api/plan", plan);
       console.log("저장 응답:", response);
       
