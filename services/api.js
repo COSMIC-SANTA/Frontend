@@ -124,6 +124,32 @@ apiClientJson.interceptors.response.use(
   }
 );
 
+apiClient.interceptors.request.use(
+  async (config) => {
+    try {
+      // AsyncStorage에서 토큰 가져오기
+      const token = await AsyncStorage.getItem('authToken');
+      
+      if (token) {
+        // Authorization 헤더에 Bearer 토큰 추가
+        config.headers.Authorization = `Bearer ${token}`;
+        console.log(`[API JSON Request] Authorization 헤더 추가됨: Bearer ${token.substring(0, 20)}...`);
+      } else {
+        console.log(`[API JSON Request] 토큰이 없음 - ${config.method?.toUpperCase()} ${config.url}`);
+      }
+    } catch (error) {
+      console.error('[API JSON Request] 토큰 가져오기 실패:', error);
+    }
+    
+    return config;
+  },
+  (error) => {
+    console.error('[API JSON Request] 요청 설정 오류:', error);
+    return Promise.reject(error);
+  }
+);
+
+
 // 응답 인터셉터: 디버깅을 위해 원본 응답 반환 + 401 처리
 apiClient.interceptors.response.use(
   (res) => {
@@ -304,6 +330,114 @@ export const planService = {
         };
       }
     }
+  },
+  loadPlan: async () => {
+    try {
+      const response = await apiClient.get("/api/plan");
+
+      console.log("[planService.loadPlan] 응답, ", response);
+      return {
+        message: response.message,
+        data: response.data
+      }
+    } catch (error) {
+      console.error("[planService.loadPlan] 에러:", error);
+
+      if (error.response) {
+        return {
+          success: false,
+          error: error.response.data?.message || "계획을 가져오는 중 서버 오류가 발생했습니다.",
+          status: error.response.status,
+          data: []
+        };
+      } else if (error.request) {
+        return {
+          success: false,
+          error: "서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.",
+          data: []
+        };
+      } else {
+        return {
+          success: false,
+          error: "계획 조회 요청 처리 중 오류가 발생했습니다.",
+          data: []
+        };
+      }
+    }
+  },
+  completePlan: async (completedPlanId) => {
+
+    const completedPlanData = {
+      planId: completedPlanId
+    }
+
+    try {
+      const response = await apiClientJson.post("/api/plan/complete", completedPlanData);
+      console.log("completedPlan: ", response);
+
+      return {
+        success: true,
+        data: response.data,
+        message: "계획이 성공적으로 완료되었습니다."
+      };
+    } catch (error) {
+      console.error("completePlan 에러: ", error);
+
+      if (error.response) {
+        return {
+          success: false,
+          error: error.response.data?.message || "계획을 완료하는 중 서버 오류가 발생했습니다.",
+          status: error.response.status,
+          data: []
+        };
+      } else if (error.request) {
+        return {
+          success: false,
+          error: "서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.",
+          data: []
+        };
+      } else {
+        return {
+          success: false,
+          error: "계획 완료 처리 중 오류가 발생했습니다.",
+          data: []
+        };
+      }
+    }
+  },
+    loadCompletedPlan: async () => {
+    try {
+      const response = await apiClient.get("/api/plan/complete");
+
+      console.log("[planService.loadCompletedPlan] 응답, ", response);
+      return {
+        message: response.message,
+        data: response.data
+      }
+    } catch (error) {
+      console.error("[planService.loadCompletedPlan] 에러:", error);
+
+      if (error.response) {
+        return {
+          success: false,
+          error: error.response.data?.message || "계획을 가져오는 중 서버 오류가 발생했습니다.",
+          status: error.response.status,
+          data: []
+        };
+      } else if (error.request) {
+        return {
+          success: false,
+          error: "서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.",
+          data: []
+        };
+      } else {
+        return {
+          success: false,
+          error: "계획 조회 요청 처리 중 오류가 발생했습니다.",
+          data: []
+        };
+      }
+    }
   }
 };
 
@@ -430,6 +564,8 @@ export const searchService = {
     }
   }
 };
+
+
 
 // 여행 목록 소개
 
