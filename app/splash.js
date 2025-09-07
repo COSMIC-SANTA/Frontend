@@ -1,16 +1,54 @@
-import { View, Text, StyleSheet, Image, TouchableOpacity, Dimensions } from "react-native";
+// app/SplashScreen.js
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform } from "react-native";
 import Line from "../assets/images/Line_1.svg";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, memo } from "react";
 import { useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
+const guidelineBaseWidth = 390;
+const guidelineBaseHeight = 844;
+const hs = (size) => (width / guidelineBaseWidth) * size;
+const vs = (size) => (height / guidelineBaseHeight) * size;
+const ms = (size, factor = 0.5) => size + (hs(size) - size) * factor;
 
+// ── 텍스트 테두리 컴포넌트 (겹쳐 그리기)
+const StrokeText = memo(({ text, fillColor = "#F2ECD9", strokeColor = "#0F2A0B", strokeWidth = 2, style }) => {
+  const offsets = [
+    { x: -1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: 0, y: 1 },
+    { x: -1, y: -1 }, { x: 1, y: -1 }, { x: -1, y: 1 }, { x: 1, y: 1 },
+  ];
+  const sw = strokeWidth; // px
+  return (
+    <View style={{ position: "relative" }}>
+      {offsets.map((o, i) => (
+        <Text
+          key={i}
+          style={[
+            style,
+            {
+              position: "absolute",
+              left: o.x * sw,
+              top: o.y * sw,
+              color: strokeColor,
+            },
+          ]}
+        >
+          {text}
+        </Text>
+      ))}
+      <Text style={[style, { color: fillColor }]}>{text}</Text>
+    </View>
+  );
+});
 
 export default function SplashScreen() {
   const router = useRouter();
 
+  const CAPTION = "GO TO THE MOUNTAIN";
+  const BODY = "Do you want to\ntake a rest in\nnature?";
+  const fullText = `${CAPTION}\n\n${BODY}`;
 
-  const fullText = "Do you want to\ntake a rest in\nnature?";
   const [typedText, setTypedText] = useState("");
   const textIndex = useRef(0);
 
@@ -21,54 +59,47 @@ export default function SplashScreen() {
         textIndex.current += 1;
         return next;
       });
-
-      if (textIndex.current >= fullText.length) {
-        clearInterval(typingInterval);
-      }
-    }, 70); // 타자 속도 조절
-
-    const timeout = setTimeout(() => {
-      router.replace("/login");
-    }, 6000000);
-
+      if (textIndex.current >= fullText.length) clearInterval(typingInterval);
+    }, 60); // 조금 더 경쾌하게
+    const timeout = setTimeout(() => router.replace("/login"), 6000);
     return () => {
       clearInterval(typingInterval);
       clearTimeout(timeout);
     };
   }, []);
 
+  // 타이핑된 텍스트를 캡션/본문으로 분리
+  const captionPart = typedText.slice(0, Math.min(typedText.length, CAPTION.length));
+  const bodyPart =
+    typedText.length > CAPTION.length ? typedText.slice(CAPTION.length).replace(/^\n+/, "") : "";
+
   return (
-    <View style={styles.container}>
-      <View style={styles.lineWrapper}>
-        <Line
-          style={{
-            position: "absolute",
-            top: -50,
-            width: width * 1.0,
-            height: width * 1.5,
-          }}
-        />
-        <Line
-          style={{
-            position: "absolute",
-            top: 160,
-            width: width * 1.0,
-            height: width * 1.5,
-          }}
-        />
+    <SafeAreaView style={styles.container}>
+      {/* 배경 라인 */}
+      <View style={styles.linesLayer} pointerEvents="none">
+        <View style={styles.lineBoxTop}>
+          <Line width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />
+        </View>
+        <View style={styles.lineBoxBottom}>
+          <Line width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />
+        </View>
       </View>
 
-      <Image
-        source={require("../assets/images/Tutto Ricco Pink Sitting On Chair.png")}
-        style={styles.personImage}
-        resizeMode="contain"
-      />
-
+      {/* 텍스트 블록 */}
       <View style={styles.textBlock}>
-        <Text style={styles.caption}>GO TO THE MOUNTIAN</Text>
-        <Text style={styles.title}>{typedText}</Text>
+        {!!captionPart && (
+          <StrokeText
+            text={captionPart}
+            strokeColor="#0F2A0B"
+            fillColor="#FFF8E5"
+            strokeWidth={1.5}
+            style={styles.caption}
+          />
+        )}
+        {!!bodyPart && <Text style={styles.title}>{bodyPart}</Text>}
       </View>
 
+      {/* 하단 버튼 */}
       <View style={styles.bottomRow}>
         <TouchableOpacity style={styles.signUpButton} onPress={() => router.push("/spain")}>
           <Text style={styles.signup}>sign up</Text>
@@ -77,104 +108,81 @@ export default function SplashScreen() {
           <Text style={styles.loginText}>Login</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#325A2A",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  lineWrapper: {
-    position: "absolute",
-    top: height * -0.2,
-    width: width * 1.4,
-    height: width * 1.8,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: -2,
-  },
-  personImage: {
-    position: "absolute",
-    width: 300,
-    height: 300,
-    top: height * 0.27,
-    marginLeft: 120,
-    marginTop: -90,
-    zIndex: 2,
-  },
-  textBlock: {
-    position: "absolute",
-    paddingHorizontal: 30,
-    height: "20%",
-    marginTop: 550,
-    marginLeft: -180,
-  },
+  container: { flex: 1, backgroundColor: "#325A2A" },
+
+  // BG Lines
+  linesLayer: { ...StyleSheet.absoluteFillObject, alignItems: "center" },
+  lineBoxTop: { position: "absolute", top: -vs(40), width: "130%", aspectRatio: 1.2, opacity: 0.9 },
+  lineBoxBottom: { position: "absolute", top: vs(220), width: "130%", aspectRatio: 1.2, opacity: 0.9 },
+
+  // 텍스트 영역
+  textBlock: { position: "absolute", left: hs(24), top: vs(140), right: hs(24) },
+
+  // ⬆️ 크기 키움
   caption: {
-    color: "#F2ECD9",
-    fontSize: 30,
-    marginBottom: 10,
-    marginTop: 20,
+    fontSize: ms(28),        // 기존 24 → 28
     fontStyle: "italic",
+    fontWeight: Platform.select({ ios: "600", android: "700" }),
+    letterSpacing: 0.5,
+    marginBottom: vs(10),
   },
   title: {
-    color: "#00000",
-    fontSize: 80,
-    fontFamily: "Snell Roundhand",
-    fontWeight: "600",
-    lineHeight: 70,
-    marginTop: 10,
+    color: "#000",
+    fontSize: ms(40),        // 기존 34 → 40
+    lineHeight: ms(46),      // 비례 확대
+    fontWeight: Platform.select({ ios: "600", android: "700" }),
+    fontFamily: Platform.select({
+      ios: "Snell Roundhand",
+      android: "sans-serif-medium",
+      default: undefined,
+    }),
   },
+
+  // 하단 버튼
   bottomRow: {
     position: "absolute",
-    bottom: 50,
-    paddingHorizontal: 30,
+    left: hs(24),
+    right: hs(24),
+    bottom: vs(40), 
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingRight: 130,
+    gap: hs(16),
   },
-  signup: {
-    fontSize: 30,
-    color: "#000",
-    fontStyle: "italic",
-    fontWeight: "600",
-    marginLeft: 10,
-  },
+  
   signUpButton: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: "#325A2A",
-    borderRadius: 80,
-    marginLeft: 400,
-    marginRight: 50,
+    flex: 1,
+    minHeight: vs(56),
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#F2ECD9",
     justifyContent: "center",
     alignItems: "center",
+    marginRight: hs(12),
     shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
     shadowRadius: 5,
+    elevation: 2,
   },
+  signup: { fontSize: ms(20), color: "#F2ECD9", fontStyle: "italic", fontWeight: "600" },
   loginButton: {
+    width: vs(68),
+    height: vs(68),
+    borderRadius: 999,
     backgroundColor: "#FFF8E5",
-    width: 100,
-    height: 100,
-    borderRadius: 80,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
     shadowOpacity: 0.2,
-    shadowOffset: { width: 2, height: 2 },
+    shadowOffset: { width: 0, height: 2 },
     shadowRadius: 5,
+    elevation: 3,
   },
-  loginText: {
-    fontSize: 30,
-    fontWeight: "600",
-    fontStyle: "italic",
-    color: "#000",
-  },
+  loginText: { fontSize: ms(20), fontWeight: "700", fontStyle: "italic", color: "#000" },
 });
