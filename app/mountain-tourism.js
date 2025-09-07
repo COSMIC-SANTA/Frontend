@@ -394,7 +394,7 @@ export default function MountainTourismScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flex: 1
   },
   loadingContainer: {
     flex: 1,
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
     borderColor: 'white',
   },
   summaryContainer: {
-    backgroundColor: 'white',
+    backgroundColor: '#FBF1CF',
     margin: 15,
     padding: 15,
     borderRadius: 10,

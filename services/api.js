@@ -307,6 +307,130 @@ export const planService = {
   }
 };
 
+export const searchService = {
+  /**
+   * 산 이름으로 검색
+   * @param {string} searchQuery - 검색할 산 이름
+   * @param {Object} options - 추가 옵션 (signal 등)
+   * @returns {Promise} 검색 결과
+   */
+  searchMountain: async (searchQuery, { signal } = {}) => {
+    try {
+      const query = (searchQuery ?? "").toString().trim();
+      
+      if (!query) {
+        console.warn("[searchService.searchMountain] 검색어가 비어있음");
+        return {
+          success: false,
+          error: "검색어를 입력해주세요.",
+          data: []
+        };
+      }
+
+      console.log(`[searchService.searchMountain] 검색 시작: "${query}"`);
+      
+      const response = await apiClient.get("/api/mountains/search", {
+        params: { mountainName: query },
+        signal,
+      });
+
+      console.log("[searchService.searchMountain] 검색 응답:", response);
+
+      // apiClient 인터셉터에 의해 response는 이미 res.data
+      // 형태: { mountains: [{ mountainName, mountainAddress, mapX, mapY }, ...] }
+      
+      return {
+        success: true,
+        data: response.mountains || [],
+        message: `"${query}" 검색 완료`,
+        searchQuery: query
+      };
+
+    } catch (error) {
+      console.error("[searchService.searchMountain] 에러:", error);
+      
+      if (error.response) {
+        return {
+          success: false,
+          error: error.response.data?.message || "검색 중 서버 오류가 발생했습니다.",
+          status: error.response.status,
+          data: []
+        };
+      } else if (error.request) {
+        return {
+          success: false,
+          error: "서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.",
+          data: []
+        };
+      } else {
+        return {
+          success: false,
+          error: "검색 요청 처리 중 오류가 발생했습니다.",
+          data: []
+        };
+      }
+    }
+  },
+
+  /**
+   * 검색 기록 저장 (로컬 스토리지)
+   * @param {string} searchQuery - 저장할 검색어
+   */
+  saveSearchHistory: async (searchQuery) => {
+    try {
+      const query = searchQuery.trim();
+      if (!query) return;
+
+      // 기존 검색 기록 가져오기
+      const existingHistory = await AsyncStorage.getItem('searchHistory');
+      let history = existingHistory ? JSON.parse(existingHistory) : [];
+
+      // 중복 제거
+      history = history.filter(item => item !== query);
+      
+      // 새 검색어를 맨 앞에 추가
+      history.unshift(query);
+      
+      // 최대 10개까지만 저장
+      if (history.length > 10) {
+        history = history.slice(0, 10);
+      }
+
+      await AsyncStorage.setItem('searchHistory', JSON.stringify(history));
+      console.log(`[searchService.saveSearchHistory] 검색 기록 저장: "${query}"`);
+      
+    } catch (error) {
+      console.error("[searchService.saveSearchHistory] 에러:", error);
+    }
+  },
+
+  /**
+   * 검색 기록 조회
+   * @returns {Promise<string[]>} 검색 기록 배열
+   */
+  getSearchHistory: async () => {
+    try {
+      const existingHistory = await AsyncStorage.getItem('searchHistory');
+      return existingHistory ? JSON.parse(existingHistory) : [];
+    } catch (error) {
+      console.error("[searchService.getSearchHistory] 에러:", error);
+      return [];
+    }
+  },
+
+  /**
+   * 검색 기록 삭제
+   */
+  clearSearchHistory: async () => {
+    try {
+      await AsyncStorage.removeItem('searchHistory');
+      console.log("[searchService.clearSearchHistory] 검색 기록 삭제 완료");
+    } catch (error) {
+      console.error("[searchService.clearSearchHistory] 에러:", error);
+    }
+  }
+};
+
 // 여행 목록 소개
 
 export const tourismService = {
