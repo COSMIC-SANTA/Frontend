@@ -1,5 +1,6 @@
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,8 +15,11 @@ import {
   View
 } from "react-native";
 import { planService } from "../services/api.js";
+import BottomNavBar from "./s_navigationbar";
 
 export default function SettingScreen() {
+  const router = useRouter();
+  
   const [userInfo, setUserInfo] = useState({
     name: "홍길동",
     location: "서울",
@@ -150,6 +154,9 @@ export default function SettingScreen() {
     );
   };
 
+    const handleNavigation = (screen) => {
+    router.push(`/${screen}`);
+  };
 
   const handleEditProfile = () => {
     setEditingUserInfo(userInfo);
@@ -202,6 +209,7 @@ export default function SettingScreen() {
   );
 
   return (
+    <View style={styles.wrapper}>
     <ScrollView style={[styles.container, { backgroundColor: "#325A2A" }]}>
       {/* 상단 프로필 섹션 */}
       <View
@@ -480,12 +488,17 @@ export default function SettingScreen() {
             </View>
           </View>
         </View>
-      </Modal>
+      </Modal>   
     </ScrollView>
+    <BottomNavBar onNavigate={handleNavigation} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+    wrapper: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     padding: 16,
