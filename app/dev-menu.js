@@ -45,7 +45,27 @@ export default function DevMenuScreen() {
       title: "최적 여행 코스 제공",
       description: "선택 스팟들의 최적 여행 코스 및 경로",
     },
-    { name: "(tabs)", title: "탭 네비게이션", description: "기본 홈 화면" },
+
+    {
+      name: "s_convi",
+      title: "편의시설",
+      description: "산 주변 편의시설 정보 제공",
+    },
+    {
+      name: "s_navigation",
+      title: "산길 안내",
+      description: "산길 안내 및 경로 정보 제공",
+    },
+    {
+      name: "s_navigationbar",
+      title: "산길 네비게이션 바",
+      description: "산길 안내를 위한 네비게이션 바",
+    },
+    {
+      name: "(tabs)",
+      title: "탭 네비게이션",
+      description: "기본 홈 화면",
+    },
   ];
 
   const navigateToPage = (pageName) => {

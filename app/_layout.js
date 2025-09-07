@@ -80,6 +80,7 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+
       <Tabs
         // ✅ 기본 탭바 완전히 숨기기
         screenOptions={{
@@ -97,6 +98,7 @@ export default function RootLayout() {
         <Tabs.Screen name="optimal-route" />
         <Tabs.Screen name="+not-found" options={{ href: null }} />
       </Tabs>
+
       <StatusBar style="auto" />
     </ThemeProvider>
   );
