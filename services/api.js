@@ -1,174 +1,218 @@
+//작성시 get 요청인지 post 요청인지 구분하는게 제일 중요!!!!
+
 import axios from "axios";
 
-// API 기본 설정
-const API_BASE_URL = "https://api.example.com"; // 실제 공공데이터 API URL로 교체 예정
+const API_BASE_URL = "http://api-santa.com";
 
-// axios 인스턴스 생성
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers: { "Content-Type": "application/json" },
 });
 
-// 요청 인터셉터 (API 키 등 추가)
-apiClient.interceptors.request.use(
-  (config) => {
-    // API 키가 필요한 경우 여기서 추가
-    // config.params = {
-    //   ...config.params,
-    //   serviceKey: 'YOUR_API_KEY',
-    // };
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// 응답 인터셉터 (에러 처리)
+// 응답 인터셉터: { message, data }로 래핑하되,
+//    data.data 없으면 data 자체를 그대로 반환 (배열/원시도 OK)
 apiClient.interceptors.response.use(
-  (response) => {
-    return response.data;
+  (res) => {
+    const d = res?.data;
+    return {
+      message: d && typeof d === "object" ? d.message ?? null : null,
+      data: d?.data ?? d ?? null,
+    };
   },
-  (error) => {
-    console.error("API Error:", error);
-    return Promise.reject(error);
-  }
+  (err) => Promise.reject(err)
 );
 
-// 관광 정보 API 서비스
-export const tourismService = {
-  // 관광지 정보 조회
-  getTouristSpots: async (mountainId = "jirisan") => {
-    try {
-      // 산 ID에 따라 다른 JSON 파일 로드
-      let data;
-      switch (mountainId) {
-        case "seoraksan":
-          data = await import("@/data/seoraksan.json");
-          break;
-        case "songnisan":
-          data = await import("@/data/songnisan.json");
-          break;
-        case "hallasan":
-          data = await import("@/data/hallasan.json");
-          break;
-        case "jirisan":
-        default:
-          data = await import("@/data/mountainTourism.json");
-          break;
-      }
-      return data.default;
-    } catch (error) {
-      console.error("관광지 정보 조회 실패:", error);
-      throw error;
-    }
+  // 1. 배너: 관심사별 산 목록
+export const mountainService = {
+  fetchByInterest: async (interest, { signal } = {}) => {
+    const res = await apiClient.get("/api/main/banner", {
+      params: { type: "interest", interest },
+      signal,
+    });
+    // res = { message, data: { interest, mountains } }  또는 백엔드에 따라 data가 바로 mountains일 수도
+    const payload = res?.data;
+    const list = Array.isArray(payload) ? payload : (payload?.mountains ?? []);
+    return list.map((m) => ({
+      id: String(m.id),
+      name: m.name,
+      image: m.imageUrl || null,
+    }));
+  },
+  
+  //해당부분 작업중 (^-^)-------*
+  async fetchDetailByName(mountainName, { signal } = {}) {
+    return apiClient.post(
+      "/api/main/banner/click",
+      { mountainName },
+      { signal }
+    );
+  },
+// -------------------
+
+};
+
+
+//2. 산이름 검색해서 좌표알아내고 날씨정보 받는 api 요청
+export const weatherService = {
+  // ① 산 이름 검색 → 후보 리스트
+  searchMountainsByName: async (mountainName, { signal } = {}) => {
+    const res = await apiClient.get("/api/mountains/search", {
+      params: { mountainName },
+      signal,
+    });
+
+    // 응답이 [ ... ] 또는 { mountains: [ ... ] } 모두 대응
+    const payload = res?.data;
+    const list = Array.isArray(payload) ? payload : (payload?.mountains ?? []);
+
+    return list.map((m) => ({
+      mountainName: String(m.mountainName ?? ""),
+      mountainAddress: String(m.mountainAddress ?? ""),
+      // 문자열/숫자 모두 허용 (사용 시 Number(...)로 변환)
+      mapX: m.mapX ?? "",
+      mapY: m.mapY ?? "",
+    }));
   },
 
-  // 맛집 정보 조회
-  getRestaurants: async (latitude, longitude, radius = 5000) => {
-    try {
-      // 실제 API 호출 예시 (주석 처리)
-      // const response = await apiClient.get('/restaurants', {
-      //   params: {
-      //     latitude,
-      //     longitude,
-      //     radius,
-      //   },
-      // });
-      // return response;
+// services/api.js 안의 weatherService.getCurrentWeather 교체
+getCurrentWeather: async ({ mapX, mapY }, { signal } = {}) => {
+  const x = Number(mapX);
+  const y = Number(mapY);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    throw new Error(`Invalid coords: mapX=${mapX}, mapY=${mapY}`);
+  }
 
-      // 임시로 로컬 데이터 반환
-      const response = await import("@/data/mountainTourism.json");
-      return response.default.touristSpots.filter(
-        (spot) => spot.category === "restaurant"
-      );
-    } catch (error) {
-      console.error("맛집 정보 조회 실패:", error);
-      throw error;
+  // 서버가 GET 미지원 → POST + JSON body
+  const res = await apiClient.post(
+    "/api/main/weather",
+    { mapX: x, mapY: y },
+    { signal }
+  );
+
+  // 인터셉터 때문에 res = { message, data }
+  const rows = Array.isArray(res?.data) ? res.data : [];
+  if (rows.length === 0) return null;
+
+  // 현재 시간과 같은 HH:00 선택(없으면 첫 번째)
+  const nowHH = `${String(new Date().getHours()).padStart(2, "0")}:00`;
+  const cur = rows.find((r) => r?.time === nowHH) || rows[0];
+
+  // 서버 코드 정규화: NO_RAIN + 구름상태 → CLEAR/CLOUDY
+  const normalizeCode = (code, gloomy) => {
+    if (code === "RAIN") return "RAIN";
+    if (code === "NO_RAIN") return gloomy === "NO_CLOUD" ? "CLEAR" : "CLOUDY";
+    return code || null;
+  };
+
+  return {
+    time: cur?.time ?? null,
+    temperature: typeof cur?.temperature === "number" ? cur.temperature : null,
+    weatherCode: normalizeCode(cur?.weatherCode, cur?.gloomyLevel),
+    gloomyLevel: cur?.gloomyLevel ?? null,
+  };
+},
+
+};
+
+// 3. 주변 편의시설 조회
+export const facilityService = {
+  getNearbyFacilities: async (
+    { mapX, mapY, location_x, location_y },
+    { signal } = {}
+  ) => {
+    // 1) 최종 좌표 결정 + 숫자 변환(서버가 숫자를 기대할 가능성 큼)
+    const xNum = Number(mapX ?? location_x);
+    const yNum = Number(mapY ?? location_y);
+
+    if (!Number.isFinite(xNum) || !Number.isFinite(yNum)) {
+      throw new Error(`Invalid coords: mapX=${mapX ?? location_x}, mapY=${mapY ?? location_y}`);
     }
-  },
 
-  // 숙박 정보 조회
-  getAccommodations: async (latitude, longitude, radius = 5000) => {
-    try {
-      // 임시로 로컬 데이터 반환
-      const response = await import("@/data/mountainTourism.json");
-      return response.default.touristSpots.filter(
-        (spot) => spot.category === "hotel"
-      );
-    } catch (error) {
-      console.error("숙박 정보 조회 실패:", error);
-      throw error;
-    }
-  },
-
-  // 카페 정보 조회
-  getCafes: async (latitude, longitude, radius = 5000) => {
-    try {
-      // 임시로 로컬 데이터 반환
-      const response = await import("@/data/mountainTourism.json");
-      return response.default.touristSpots.filter(
-        (spot) => spot.category === "cafe"
-      );
-    } catch (error) {
-      console.error("카페 정보 조회 실패:", error);
-      throw error;
-    }
-  },
-
-  // 경로 최적화 API (향후 구현)
-  getOptimalRoute: async (spots) => {
-    try {
-      // 현재는 간단한 거리 기반 정렬
-      // 나중에 실제 경로 최적화 API로 교체
-      return spots.sort((a, b) => {
-        const distanceA = parseFloat(a.distance.replace("km", ""));
-        const distanceB = parseFloat(b.distance.replace("km", ""));
-        return distanceA - distanceB;
+    // 요청/응답 디버깅 로그 (개발 중에만)
+    const logFail = (err) => {
+      /* eslint-disable no-console */
+      console.log('facilities API error =>', {
+        message: err?.message,
+        status: err?.response?.status,
+        data: err?.response?.data,
+        url: (err?.config && (err.config.baseURL + err.config.url)) || undefined,
+        payload: err?.config?.data,
+        headers: err?.config?.headers,
       });
-    } catch (error) {
-      console.error("경로 최적화 실패:", error);
-      throw error;
-    }
-  },
-};
+      /* eslint-enable no-console */
+    };
 
-// 지도/네비게이션 API 서비스
-export const navigationService = {
-  // 경로 안내 정보 조회
-  getDirections: async (origin, destination, mode = "driving") => {
+    // 2) JSON 바디 시도
     try {
-      // 실제 지도 API (Google Maps, 카카오맵 등) 호출
-      // const response = await apiClient.get('/directions', {
-      //   params: {
-      //     origin,
-      //     destination,
-      //     mode,
-      //   },
-      // });
+      const res = await apiClient.post(
+        "/api/mountains/facilities",
+        { mapX: xNum, mapY: yNum }, // ← 숫자(JSON)
+        { signal, headers: { "Content-Type": "application/json" } }
+      );
 
-      // 임시 데이터 반환
+      const payload = res?.data ?? {};
+      const normalize = (arr = []) =>
+        arr.map((it) => ({
+          place_name: String(it?.placeName ?? ""),
+          address_name: String(it?.addressName ?? ""),
+          location_x: Number(it?.mapX ?? NaN), // 경도
+          location_y: Number(it?.mapY ?? NaN), // 위도
+          distance: Number(it?.distance ?? 0),
+        }));
+
       return {
-        routes: [
-          {
-            duration: "2h 3.6km",
-            distance: "24.3km",
-            steps: [
-              "출발지에서 택시 이용",
-              "지리산 국립공원 입구까지",
-              "도보로 등산로 진입",
-            ],
-          },
-        ],
+        toilet: normalize(payload.toilet),
+        water: normalize(payload.water),
+        hospital: normalize(payload.hospital),
+        pharmacy: normalize(payload.pharmacy),
       };
-    } catch (error) {
-      console.error("경로 안내 조회 실패:", error);
-      throw error;
+    } catch (err) {
+      // 3) JSON이 400이면 서버가 form을 기대할 수도 있음 → fallback
+      logFail(err);
+
+      // form-urlencoded로 다시 시도
+      try {
+        const body = new URLSearchParams({
+          mapX: String(xNum),
+          mapY: String(yNum),
+        }).toString();
+
+        const res2 = await apiClient.post(
+          "/api/mountains/facilities",
+          body,
+          {
+            signal,
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          }
+        );
+
+        const payload = res2?.data ?? {};
+        const normalize = (arr = []) =>
+          arr.map((it) => ({
+            place_name: String(it?.placeName ?? ""),
+            address_name: String(it?.addressName ?? ""),
+            location_x: Number(it?.mapX ?? NaN),
+            location_y: Number(it?.mapY ?? NaN),
+            distance: Number(it?.distance ?? 0),
+          }));
+
+        return {
+          toilet: normalize(payload.toilet),
+          water: normalize(payload.water),
+          hospital: normalize(payload.hospital),
+          pharmacy: normalize(payload.pharmacy),
+        };
+      } catch (err2) {
+        logFail(err2);
+        throw err2; // 둘 다 실패면 밖으로
+      }
     }
   },
 };
+
+
+
 
 export default apiClient;
+

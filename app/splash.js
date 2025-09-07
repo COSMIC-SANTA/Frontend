@@ -1,93 +1,54 @@
+// app/SplashScreen.js
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform } from "react-native";
+import Line from "../assets/images/Line_1.svg";
+import { useEffect, useRef, useState, memo } from "react";
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import { Dimensions, Image, PixelRatio, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
+const guidelineBaseWidth = 390;
+const guidelineBaseHeight = 844;
+const hs = (size) => (width / guidelineBaseWidth) * size;
+const vs = (size) => (height / guidelineBaseHeight) * size;
+const ms = (size, factor = 0.5) => size + (hs(size) - size) * factor;
 
-// 기기 유형 및 특성 감지
-const aspectRatio = height / width;
-const pixelDensity = PixelRatio.get();
-const isTablet = Math.min(width, height) >= 600;
-const isSmallPhone = Math.min(width, height) < 350;
-const isLargePhone = Math.max(width, height) > 900;
-
-// 디바이스별 스케일링 계수
-const getDeviceScale = () => {
-  if (isTablet) return { width: 1.2, height: 1.1, font: 1.3 };
-  if (isSmallPhone) return { width: 0.9, height: 0.95, font: 0.85 };
-  if (isLargePhone) return { width: 1.05, height: 1.05, font: 1.1 };
-  return { width: 1, height: 1, font: 1 };
-};
-
-const deviceScale = getDeviceScale();
-
-// 반응형 너비/높이 계산 (디바이스 특성 반영)
-const wp = (percentage) => {
-  return (width * percentage * deviceScale.width) / 100;
-};
-
-const hp = (percentage) => {
-  return (height * percentage * deviceScale.height) / 100;
-};
-
-// 동적 폰트 크기 조정 (화면 크기 + 픽셀 밀도 + 디바이스 유형)
-const normalize = (size) => {
-  // 화면 면적 기반 기본 스케일
-  const screenArea = width * height;
-  const baseArea = 375 * 812; // 기준 화면 면적
-  const areaScale = Math.sqrt(screenArea / baseArea);
-  
-  // 종횡비 보정 (너무 길거나 넓은 화면 보정)
-  const ratioCorrection = Math.min(1.2, Math.max(0.8, 1 / (aspectRatio * 0.6)));
-  
-  // 픽셀 밀도 보정
-  const densityCorrection = Math.min(1.3, Math.max(0.7, pixelDensity * 0.4));
-  
-  // 최종 크기 계산
-  const finalSize = size * areaScale * ratioCorrection * densityCorrection * deviceScale.font;
-  
-  // 최소/최대 크기 제한
-  const minSize = isTablet ? 14 : 10;
-  const maxSize = isTablet ? 40 : 28;
-  
-  return Math.round(Math.max(minSize, Math.min(maxSize, finalSize)));
-};
-
-
-// 곡선 배경 라인 컴포넌트
-const CurvedLine = ({ style }) => (
-  <Svg
-    style={style}
-    viewBox="0 0 400 600"
-    preserveAspectRatio="xMidYMid slice"
-  >
-    <Path
-      d="M50,100 Q200,50 350,100 Q200,150 50,100 Z"
-      fill="rgba(255, 248, 229, 0.3)"
-      stroke="rgba(255, 248, 229, 0.5)"
-      strokeWidth="2"
-    />
-    <Path
-      d="M30,200 Q200,150 370,200 Q200,250 30,200 Z"
-      fill="rgba(255, 248, 229, 0.2)"
-      stroke="rgba(255, 248, 229, 0.4)"
-      strokeWidth="1.5"
-    />
-    <Path
-      d="M80,300 Q200,250 320,300 Q200,350 80,300 Z"
-      fill="rgba(255, 248, 229, 0.25)"
-      stroke="rgba(255, 248, 229, 0.3)"
-      strokeWidth="1"
-    />
-  </Svg>
-);
+// ── 텍스트 테두리 컴포넌트 (겹쳐 그리기)
+const StrokeText = memo(({ text, fillColor = "#F2ECD9", strokeColor = "#0F2A0B", strokeWidth = 2, style }) => {
+  const offsets = [
+    { x: -1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: 0, y: 1 },
+    { x: -1, y: -1 }, { x: 1, y: -1 }, { x: -1, y: 1 }, { x: 1, y: 1 },
+  ];
+  const sw = strokeWidth; // px
+  return (
+    <View style={{ position: "relative" }}>
+      {offsets.map((o, i) => (
+        <Text
+          key={i}
+          style={[
+            style,
+            {
+              position: "absolute",
+              left: o.x * sw,
+              top: o.y * sw,
+              color: strokeColor,
+            },
+          ]}
+        >
+          {text}
+        </Text>
+      ))}
+      <Text style={[style, { color: fillColor }]}>{text}</Text>
+    </View>
+  );
+});
 
 export default function SplashScreen() {
   const router = useRouter();
 
+  const CAPTION = "GO TO THE MOUNTAIN";
+  const BODY = "Do you want to\ntake a rest in\nnature?";
+  const fullText = `${CAPTION}\n\n${BODY}`;
 
-  const fullText = "Do you want to\ntake a rest in\nnature?";
   const [typedText, setTypedText] = useState("");
   const textIndex = useRef(0);
 
@@ -98,59 +59,47 @@ export default function SplashScreen() {
         textIndex.current += 1;
         return next;
       });
-
-      if (textIndex.current >= fullText.length) {
-        clearInterval(typingInterval);
-      }
-    }, 70); // 타자 속도 조절
-
-    const timeout = setTimeout(() => {
-      router.replace("/login");
-    }, 6000000);
-
+      if (textIndex.current >= fullText.length) clearInterval(typingInterval);
+    }, 60); // 조금 더 경쾌하게
+    const timeout = setTimeout(() => router.replace("/login"), 6000);
     return () => {
       clearInterval(typingInterval);
       clearTimeout(timeout);
     };
-  }, [router]);
+  }, []);
+
+  // 타이핑된 텍스트를 캡션/본문으로 분리
+  const captionPart = typedText.slice(0, Math.min(typedText.length, CAPTION.length));
+  const bodyPart =
+    typedText.length > CAPTION.length ? typedText.slice(CAPTION.length).replace(/^\n+/, "") : "";
 
   return (
-    <View style={styles.container}>
-      <View style={styles.lineWrapper}>
-        <CurvedLine
-          style={{
-            position: "absolute",
-            top: hp(-10),
-            width: wp(100),
-            height: hp(40),
-          }}
-        />
-        <CurvedLine
-          style={{
-            position: "absolute",
-            top: hp(20),
-            width: wp(100),
-            height: hp(40),
-            transform: [{ rotate: "180deg" }],
-          }}
-        />
+    <SafeAreaView style={styles.container}>
+      {/* 배경 라인 */}
+      <View style={styles.linesLayer} pointerEvents="none">
+        <View style={styles.lineBoxTop}>
+          <Line width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />
+        </View>
+        <View style={styles.lineBoxBottom}>
+          <Line width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />
+        </View>
       </View>
 
-      <Image
-        source={require("../assets/images/Tutto Ricco Pink Sitting On Chair.png")}
-        style={styles.personImage}
-        resizeMode="contain"
-      />
-      <Image
-        source={require("../assets/images/Line_1.svg")}
-        resizeMode="contain"
-        />
-
+      {/* 텍스트 블록 */}
       <View style={styles.textBlock}>
-        <Text style={styles.caption}>GO TO THE MOUNTIAN</Text>
-        <Text style={styles.title}>{typedText}</Text>
+        {!!captionPart && (
+          <StrokeText
+            text={captionPart}
+            strokeColor="#0F2A0B"
+            fillColor="#FFF8E5"
+            strokeWidth={1.5}
+            style={styles.caption}
+          />
+        )}
+        {!!bodyPart && <Text style={styles.title}>{bodyPart}</Text>}
       </View>
 
+      {/* 하단 버튼 */}
       <View style={styles.bottomRow}>
         <TouchableOpacity style={styles.signUpButton} onPress={() => router.push("/spain")}>
           <Text style={styles.signup}>sign up</Text>
@@ -159,105 +108,81 @@ export default function SplashScreen() {
           <Text style={styles.loginText}>Login</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#325A2A",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  lineWrapper: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    zIndex: -1,
-  },
-  personImage: {
-    position: "absolute",
-    width: isTablet ? wp(50) : wp(70),
-    height: isTablet ? wp(50) : wp(70),
-    top: isTablet ? hp(20) : hp(25),
-    right: isTablet ? wp(10) : wp(5),
-    maxWidth: isTablet ? 400 : 300,
-    maxHeight: isTablet ? 400 : 300,
-    zIndex: 2,
-  },
-  textBlock: {
-    position: "absolute",
-    paddingHorizontal: wp(6),
-    top: isTablet ? hp(55) : hp(62),
-    left: wp(6),
-    width: isTablet ? wp(45) : wp(55),
-    maxWidth: isTablet ? 350 : 250,
-  },
+  container: { flex: 1, backgroundColor: "#325A2A" },
+
+  // BG Lines
+  linesLayer: { ...StyleSheet.absoluteFillObject, alignItems: "center" },
+  lineBoxTop: { position: "absolute", top: -vs(40), width: "130%", aspectRatio: 1.2, opacity: 0.9 },
+  lineBoxBottom: { position: "absolute", top: vs(220), width: "130%", aspectRatio: 1.2, opacity: 0.9 },
+
+  // 텍스트 영역
+  textBlock: { position: "absolute", left: hs(24), top: vs(140), right: hs(24) },
+
+  // ⬆️ 크기 키움
   caption: {
-    color: "#F2ECD9",
-    fontSize: normalize(isTablet ? 16 : 14),
-    marginBottom: hp(1.5),
+    fontSize: ms(28),        // 기존 24 → 28
     fontStyle: "italic",
-    letterSpacing: isTablet ? 1 : 0.5,
+    fontWeight: Platform.select({ ios: "600", android: "700" }),
+    letterSpacing: 0.5,
+    marginBottom: vs(10),
   },
   title: {
-    color: "#000000",
-    fontSize: normalize(isTablet ? 28 : 24),
-    fontFamily: "System",
-    fontWeight: "600",
-    lineHeight: normalize(isTablet ? 34 : 28),
-    marginTop: hp(1),
+    color: "#000",
+    fontSize: ms(40),        // 기존 34 → 40
+    lineHeight: ms(46),      // 비례 확대
+    fontWeight: Platform.select({ ios: "600", android: "700" }),
+    fontFamily: Platform.select({
+      ios: "Snell Roundhand",
+      android: "sans-serif-medium",
+      default: undefined,
+    }),
   },
+
+  // 하단 버튼
   bottomRow: {
     position: "absolute",
-    bottom: hp(isTablet ? 6 : 8),
-    width: wp(isTablet ? 80 : 85),
+    left: hs(24),
+    right: hs(24),
+    bottom: vs(40), 
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: wp(4),
+    gap: hs(16),
   },
+  
   signUpButton: {
-    paddingHorizontal: wp(isTablet ? 8 : 6),
-    paddingVertical: hp(isTablet ? 2 : 1.5),
-    backgroundColor: "#325A2A",
-    borderRadius: isTablet ? 30 : 25,
+    flex: 1,
+    minHeight: vs(56),
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#F2ECD9",
     justifyContent: "center",
     alignItems: "center",
+    marginRight: hs(12),
     shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
     shadowRadius: 5,
-    elevation: 3,
+    elevation: 2,
   },
-  signup: {
-    fontSize: normalize(isTablet ? 14 : 12),
-    color: "#FFF8E5",
-    fontStyle: "italic",
-    fontWeight: "600",
-  },
+  signup: { fontSize: ms(20), color: "#F2ECD9", fontStyle: "italic", fontWeight: "600" },
   loginButton: {
+    width: vs(68),
+    height: vs(68),
+    borderRadius: 999,
     backgroundColor: "#FFF8E5",
-    width: isTablet ? wp(12) : wp(18),
-    height: isTablet ? wp(12) : wp(18),
-    borderRadius: isTablet ? wp(6) : wp(9),
     justifyContent: "center",
     alignItems: "center",
-    maxWidth: isTablet ? 100 : 70,
-    maxHeight: isTablet ? 100 : 70,
     shadowColor: "#000",
     shadowOpacity: 0.2,
-    shadowOffset: { width: 2, height: 2 },
+    shadowOffset: { width: 0, height: 2 },
     shadowRadius: 5,
     elevation: 3,
   },
-  loginText: {
-    fontSize: normalize(isTablet ? 12 : 10),
-    fontWeight: "600",
-    fontStyle: "italic",
-    color: "#000",
-  },
+  loginText: { fontSize: ms(20), fontWeight: "700", fontStyle: "italic", color: "#000" },
 });

@@ -1,327 +1,374 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, TextInput, FlatList, StyleSheet, ScrollView, Image, Dimensions,} from 'react-native';
+// app/FacilitiesScreen.js
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import {
+  View, Text, TouchableOpacity,
+  StyleSheet, ScrollView, Image, Dimensions,
+  ActivityIndicator, Alert, RefreshControl, Platform
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import BottomNavBar from './s_navigationbar';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Line from "../assets/images/Line_1.svg";
 
-const MOUNTAIN_LIST = ['Jirisan', 'Seoraksan', 'Hallasan', 'Bukhansan', 'Taebaeksan'];
-const { width } = Dimensions.get("window");
+// 플랫폼 분기 맵 (components/s_compatmap.native.js / .web.js 필요)
+import CompatMap, { Marker } from '../components/s_compatmap';
 
-export default function MainScreen() {
-  const [selectedMountain, setSelectedMountain] = useState('Jirisan');
-  const [modalVisible, setModalVisible] = useState(false);
-  const [search, setSearch] = useState('');
+import * as Location from 'expo-location';
+import { facilityService } from '../services/api';
 
-  const filteredList = MOUNTAIN_LIST.filter(name =>
-    name.toLowerCase().includes(search.toLowerCase())
-  );
+const { width } = Dimensions.get('window');
 
-  const router = useRouter();
-const handleNavigation = (screen) => {
-  router.push(`/${screen}`);
+// ─────────────────────────────────────────────
+// ✅ 웹 테스트 모드 설정
+// ─────────────────────────────────────────────
+const WEB_TEST = Platform.OS === 'web';
+const MOCK_COORD = { x: '127.0276', y: '37.4979' }; // 강남역 근처
+
+// 카테고리 색상
+const PIN = {
+  toilet: 'tomato',
+  water: 'deepskyblue',
+  hospital: 'purple',
+  pharmacy: 'green',
 };
 
-  const facilityData = {
-    Jirisan: {
-      Toilet: [
-        { name: 'Jirisan HwaJangSill 1' },
-        { name: 'Jirisan HwaJangSill 2' },
-        { name: 'Jirisan HwaJangSill 3' },
-        { name: 'Jirisan HwaJangSill 1' },
-        { name: 'Jirisan HwaJangSill 2' },
-        { name: 'Jirisan HwaJangSill 3' },
-        { name: 'Jirisan HwaJangSill 1' },
-        { name: 'Jirisan HwaJangSill 2' },
-        { name: 'Jirisan HwaJangSill 3' },
-      ],
-      WaterSupply: [
-        { name: 'Jirisan SicksSuDae 1' },
-        { name: 'Jirisan SicksSuDae 2' },
-        { name: 'Jirisan SicksSuDae 3' },
-        { name: 'Jirisan SicksSuDae 1' },
-        { name: 'Jirisan SicksSuDae 2' },
-        { name: 'Jirisan SicksSuDae 3' },
-      ],
-      MedicalFacility: [
-        { name: 'EuhRyouShiSeol 1' },
-        { name: 'Jirisan SicksSuDae 1' },
-        { name: 'Jirisan SicksSuDae 2' },
-        { name: 'Jirisan SicksSuDae 3' },
-        { name: 'Jirisan SicksSuDae 1' },
-        { name: 'Jirisan SicksSuDae 2' },
-        { name: 'Jirisan SicksSuDae 3' },
-      ],
-      ConvenienceStore: [
-        { name: 'Jirisan CU 1' },
-        { name: 'Jirisan GS25 1' },
-        { name: 'Jirisan 7-Eleven 1' },
-      ],
-    },
-    Seoraksan: {
-      Toilet: [
-        { name: 'Jirisan HwaJangSill 1' },
-        { name: 'Jirisan HwaJangSill 2' },
-        { name: 'Jirisan HwaJangSill 3' },
-      ],
-      WaterSupply: [
-        { name: 'Jirisan SicksSuDae 1' },
-        { name: 'Jirisan SicksSuDae 2' },
-        { name: 'Jirisan SicksSuDae 3' },
-      ],
-      MedicalFacility: [
-        { name: 'EuhRyouShiSeol 1' },
-      ],
-    },
-  };
-  
+// 숫자 변환 + 유효성 검사
+const toNum = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+export default function FacilitiesScreen() {
+  // 위치/지도
+  const [region, setRegion] = useState(null);
+  const [initialRegion, setInitialRegion] = useState(null); // onMapReady용 초기값
+  const mapRef = useRef(null);
+
+  // 데이터
+  const [facilities, setFacilities] = useState({
+    toilet: [],
+    water: [],
+    hospital: [],
+    pharmacy: [],
+  });
+
+  // UI 상태
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [visibleCats, setVisibleCats] = useState({
+    toilet: true, water: true, hospital: true, pharmacy: true
+  });
+
+  const router = useRouter();
+  const handleNavigation = (screen) => router.push(`/${screen}`);
+
+  // 현재 위치 읽고, 편의시설 로드
+  const loadFromCurrentLocation = useCallback(async () => {
+    try {
+      setRefreshing(true);
+
+      let x, y; // 경도/위도 (백엔드 스펙: x=경도, y=위도)
+      if (WEB_TEST) {
+        x = MOCK_COORD.x;
+        y = MOCK_COORD.y;
+      } else {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('권한 필요', '위치 권한이 거부되어 편의시설을 불러올 수 없습니다.');
+          return;
+        }
+        const loc = await Location.getCurrentPositionAsync({});
+        x = String(loc.coords.longitude);
+        y = String(loc.coords.latitude);
+      }
+
+      const yNum = toNum(y);
+      const xNum = toNum(x);
+      if (yNum == null || xNum == null) {
+        throw new Error('Invalid current location coords');
+      }
+
+      const nextRegion = {
+        latitude: yNum,
+        longitude: xNum,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      };
+      setRegion(nextRegion);
+      setInitialRegion((prev) => prev ?? nextRegion); // 최초 1회만 세팅
+
+      // 백엔드 스펙 유지
+      const data = await facilityService.getNearbyFacilities({
+        mountain_name: "",
+        location_x: x, // 경도
+        location_y: y, // 위도
+      });
+
+      setFacilities({
+        toilet: Array.isArray(data?.toilet) ? data.toilet : [],
+        water: Array.isArray(data?.water) ? data.water : [],
+        hospital: Array.isArray(data?.hospital) ? data.hospital : [],
+        pharmacy: Array.isArray(data?.pharmacy) ? data.pharmacy : [],
+      });
+    } catch (e) {
+      console.log('facilities load error:', e);
+      Alert.alert('오류', '편의시설 데이터를 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      await loadFromCurrentLocation();
+    })();
+  }, [loadFromCurrentLocation]);
+
+  // 지도 마커 렌더링 (유효 좌표만 표시)
+  const markers = useMemo(() => {
+    const arr = [];
+    const pushMarkers = (catKey, list) => {
+      if (!visibleCats[catKey]) return;
+      list.forEach((p, idx) => {
+        const lat = toNum(p.location_y ?? p.mapY ?? p.latitude);
+        const lon = toNum(p.location_x ?? p.mapX ?? p.longitude);
+        if (lat == null || lon == null) return; // 안드로이드에서 특히 중요!
+
+        arr.push(
+          <Marker
+            key={`${catKey}-${idx}`}
+            coordinate={{ latitude: lat, longitude: lon }}
+            title={p.place_name || p.placeName}
+            description={p.address_name || p.addressName}
+            pinColor={PIN[catKey]}
+          />
+        );
+      });
+    };
+    pushMarkers('toilet', facilities.toilet);
+    pushMarkers('water', facilities.water);
+    pushMarkers('hospital', facilities.hospital);
+    pushMarkers('pharmacy', facilities.pharmacy);
+    return arr;
+  }, [facilities, visibleCats]);
+
+  if (loading || !region) {
+    return (
+      <SafeAreaView style={[styles.backcontainer, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" />
+        <Text style={{ marginTop: 8 }}>현재 위치 기반으로 불러오는 중…</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style ={styles.backcontainer}>
-    <View style={styles.contentContainer}>
-     <ScrollView contentContainerStyle={[styles.topcontainer, { paddingBottom:0 }]}>
+    <SafeAreaView style={styles.backcontainer}>
+      <View style={styles.contentContainer}>
 
-      {/* 헤더 영역: 산 이름 + 돋보기 */}
-      <View style={styles.header}>
-        <Text style={styles.mountainText}>{selectedMountain}</Text>
-        <TouchableOpacity onPress={() => setModalVisible(true)}>
-          <Text style={styles.searchIcon}>🔍</Text>
-        </TouchableOpacity>
-      </View>
+        {/* 상단 컨테이너(풀 스크롤) */}
+        <ScrollView
+          contentContainerStyle={[styles.topcontainer, { paddingBottom: 0 }]}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={loadFromCurrentLocation} />
+          }
+        >
+          {/* 웹 테스트 배지 */}
+          {WEB_TEST && (
+            <View style={styles.banner}>
+              <Text style={styles.bannerText}>Web Test Mode (mock coords)</Text>
+            </View>
+          )}
 
-      {/* 산 검색 모달창 */}
-      <Modal visible={modalVisible} transparent animationType="slide">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalBox}>
-            <TextInput
-              placeholder="Search Mountain"
-              value={search}
-              onChangeText={setSearch}
-              style={styles.input}
-            />
-            <FlatList
-              data={filteredList}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => setSelectedMountain(item)}>
-                  <Text style={styles.item}>{item}</Text>
-                </TouchableOpacity>
-              )}
-            />
-            <TouchableOpacity
-              style={styles.confirmBtn}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.confirmText}>확인</Text>
+          {/* 헤더: 타이틀 + 새로고침 */}
+          <View style={styles.header}>
+            <Text style={styles.titleText}>Nearby Facilities</Text>
+            <TouchableOpacity onPress={loadFromCurrentLocation} style={styles.refreshBtn}>
+              <Text style={styles.refreshText}>↻</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
 
-      {/* 지도 영역 */}
-      <View style={styles.mapContainer}>
-        <Text style={styles.mapItem}>지도 영역</Text>
-      </View>
-
-      {/* 편의 시설 리스트 영역 */}
-      <View style={styles.listContainer}>
-        <ScrollView style={styles.outerScroll}>
-        {['Toilet', 'WaterSupply', 'MedicalFacility', 'ConvenienceStore'].map((type) => {
-    const icon = type === 'Toilet' ? '🚻'
-              : type === 'WaterSupply' ? '💧'
-              : type === 'MedicalFacility' ? '➕'
-              : '🏪'; 
-
-    const label = type === 'Toilet' ? 'Toilet'
-               : type === 'WaterSupply' ? 'Water Supply'
-               : type === 'MedicalFacility' ? 'Medical Facility'
-               : 'Convenience Store'; 
-    const facilities = facilityData[selectedMountain]?.[type] || [];
-
-    return (
-      <View key={type} style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.icon}>{icon}</Text>
-          <Text style={styles.label}>{label}</Text>
-        </View>
-
-        <ScrollView style={styles.innerScroll} nestedScrollEnabled>
-          {facilities.map((item, index) => (
-            <View key={index} style={styles.itemRow}>
-              <Text style={styles.dot}>•</Text>
-              <Text style={styles.itemText}>{item.name}</Text>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
-    );
-  })}
- 
-  </ScrollView>
-   {/* 리스트 하단에 겹쳐진 일러스트 */}
-   <Image
-    source={require('../assets/images/Tutto Ricco Pink Sitting On Chair.png')}
-    style={styles.footerDesign}
-    resizeMode="contain"/>
-
-<View style={{ position: 'absolute', bottom: -100, left: -200, zIndex: -2, }}> 
-            <Line width={width * 1.5} height={width * 1.1} />
+          {/* 지도 */}
+          <View style={styles.mapContainer}>
+            <CompatMap
+              ref={mapRef}
+              initialRegion={initialRegion}   // 최초 렌더 안정화
+              region={region}                 // 이후에는 region으로 제어
+              style={{ width: '100%', height: '100%', borderRadius: 10 }}
+              onMapReady={() => {
+                // 안드로이드에서 초기 타이밍 안정화
+                if (mapRef.current && typeof mapRef.current.animateToRegion === 'function') {
+                  mapRef.current.animateToRegion(region, 400);
+                }
+              }}
+            >
+              {/* 현재 위치 */}
+              <Marker
+                coordinate={{ latitude: region.latitude, longitude: region.longitude }}
+                title="현재 위치"
+              />
+              {/* 카테고리 마커 */}
+              {markers}
+            </CompatMap>
           </View>
 
-  </View> {/* 편의시설 리스트 영역 끝*/}
+          {/* 카테고리 토글 */}
+          <View style={styles.filterRow}>
+            {[
+              { key: 'toilet', label: 'Toilet', dot: PIN.toilet, emoji: '🚻' },
+              { key: 'water', label: 'Water Supply', dot: PIN.water, emoji: '💧' },
+              { key: 'hospital', label: 'Medical Facility', dot: PIN.hospital, emoji: '🏥' },
+              { key: 'pharmacy', label: 'Pharmacy', dot: PIN.pharmacy, emoji: '💊' },
+            ].map(({ key, label, dot, emoji }) => (
+              <TouchableOpacity
+                key={key}
+                style={[styles.chip, visibleCats[key] && styles.chipOn]}
+                onPress={() => setVisibleCats(prev => ({ ...prev, [key]: !prev[key] }))}
+              >
+                <View style={[styles.dot, { backgroundColor: dot }]} />
+                <Text style={styles.chipText}>{emoji} {label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-  
+          {/* 리스트 */}
+          <View style={styles.listContainer}>
+            <ScrollView style={styles.outerScroll} contentContainerStyle={{ paddingBottom: 20 }}>
+              {renderSectionCard({ typeKey: 'toilet',  icon: '🚻', title: 'Toilet',          items: facilities.toilet })}
+              {renderSectionCard({ typeKey: 'water',   icon: '💧', title: 'Water Supply',   items: facilities.water })}
+              {renderSectionCard({ typeKey: 'hospital',icon: '🏥', title: 'Medical Facility',items: facilities.hospital })}
+              {renderSectionCard({ typeKey: 'pharmacy',icon: '💊', title: 'Pharmacy',       items: facilities.pharmacy })}
+            </ScrollView>
+          </View>
+        </ScrollView>
 
-    </ScrollView>  {/* 상단 영역의 가장 큰 스크롤 화면 끝*/}
+        {/* 하단 네비게이션 */}
+        <View style={styles.bottomContainer}>
+          <BottomNavBar onNavigate={handleNavigation} />
+        </View>
+      </View>
+    </SafeAreaView>
+  );
+}
 
-    
-
-      {/* 하단 영역: 네비게이션 바 */}
-      <View style ={styles.bottomContainer}>
-    <BottomNavBar onNavigate={handleNavigation} />
+// 카드 섹션
+function renderSectionCard({ typeKey, icon, title, items }) {
+  return (
+    <View key={typeKey} style={styles.card}>
+      <Image source={require('../assets/images/bookmark.png')} style={styles.flagImage} resizeMode="contain" />
+      <View style={styles.cardHeader}>
+        <View style={styles.ribbonTag}><Text style={styles.ribbonText}>{icon}</Text></View>
+        <View style={styles.headerTextContainer}><Text style={styles.label}>{title}</Text></View>
+      </View>
+      <ScrollView style={styles.innerScroll} nestedScrollEnabled>
+        {items?.length ? (
+          items.map((p, i) => (
+            <View key={i} style={styles.itemRow}>
+              <Text style={styles.dotText}>•</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemText}>{p.place_name || p.placeName}</Text>
+                {!!(p.address_name || p.addressName) && (
+                  <Text style={styles.addrText}>{p.address_name || p.addressName}</Text>
+                )}
+              </View>
+            </View>
+          ))
+        ) : (
+          <Text style={{ color: '#666' }}>근처에 데이터가 없습니다.</Text>
+        )}
+      </ScrollView>
     </View>
-
-    </View> {/* 두번째 밑바닥 큰 컨테이너 */}
-    </SafeAreaView> /* 가장 밑바닥 큰 컨테이너 끝*/
   );
 }
 
 const styles = StyleSheet.create({
-  backcontainer:{
-    flex:1,
-  },
-  contentContainer: {
-    flex: 1,
-  },
+  backcontainer: { flex: 1 },
+  contentContainer: { flex: 1 },
   topcontainer: {
-    flexGrow: 1,
-    paddingTop: 20,
-    paddingHorizontal: 20,
-    paddingBottom:20,
-    backgroundColor: "#325A2A",
+    flexGrow: 1, paddingTop: 20, paddingHorizontal: 20, paddingBottom: 20, backgroundColor: '#325A2A',
   },
-  bottomContainer:{
-    height: 70, 
-    backgroundColor: '#FFF8E1',
-    borderTopWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 10,
+  bottomContainer: {
+    height: 70, backgroundColor: '#FFF8E1', borderTopWidth: 1, borderColor: '#ddd', marginBottom: 10,
+  },
 
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: "#DB61A7",
-    flex: 1,
-  },
-  mountainText: {
-    fontSize: 40,
-    fontWeight: 'bold',
-  },
-  searchIcon: {
-    fontSize: 24,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    backgroundColor: '#00000099',
-  },
-  modalBox: {
-    backgroundColor: '#fff',
-    margin: 30,
-    padding: 20,
-    borderRadius: 10,
-  },
-  input: {
-    borderBottomWidth: 1,
-    marginBottom: 10,
-    fontSize: 16,
-  },
-  item: {
-    fontSize: 18,
-    paddingVertical: 8,
-  },
-  confirmBtn: {
-    marginTop: 10,
-    backgroundColor: '#2e7d32',
-    padding: 10,
-    borderRadius: 8,
-  },
-  confirmText: {
-    textAlign: 'center',
-    color: 'white',
-    fontWeight: 'bold',
-  },
+  // 웹 테스트 배지
+  banner: { backgroundColor: '#fff3cd', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, alignSelf: 'flex-start', marginLeft: 20, marginBottom: 6 },
+  bannerText: { color: '#8a6d3b', fontWeight: '700' },
+
+  // 헤더
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#325A2A' },
+  titleText: { fontSize: 36, fontWeight: 'bold', margin: 20, color: 'white' },
+  refreshBtn: { marginRight: 20, backgroundColor: 'white', borderRadius: 18, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  refreshText: { fontSize: 18, fontWeight: '800' },
+
+  // 지도
   mapContainer: {
-    flex : 5,
-    backgroundColor: '#7dbfb7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderColor: "black",
-    borderWidth: 5,
-    borderRadius: 10,
+    height: 260, backgroundColor: '#7dbfb7', alignItems: 'center', justifyContent: 'center',
+    borderColor: 'black', borderWidth: 5, borderRadius: 10, overflow: 'hidden',
+  },
 
-  },
-  mapItem: {
-    fontSize: 30,
-  },
-  listContainer : {
-    flex : 8,
-    backgroundColor: '#7857e5',
-    paddingTop:10,
+  // 카테고리 토글
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 4, marginTop: 12, marginBottom: 6 },
+  chip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eee', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth:3, },
+  chipOn: { backgroundColor: '#fff' },
+  chipText: { fontWeight: '700' },
+  dot: { width: 10, height: 10, borderRadius: 5, marginRight: 6 },
+
+  // 리스트
+  listContainer: {
+    backgroundColor: 'white',
+    paddingTop: 30,
     paddingHorizontal: 20,
     position: 'relative',
-    marginTop: 30,
-    marginBottom:20,
-    overflow: 'hidden', //svg 자체가 가지고 있는 불필요한 공백 제거해 줌.
+    marginTop: 20,
+    marginBottom: 20,
+    borderRadius: 20, 
+    borderWidth: 5,
+    borderColor: 'black',
 
+
+    
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  outerScroll : {
-    flex: 1,
-  },
+
+  // ✅ 카드(리스트 내부 박스)
   card: {
-    backgroundColor: '#f4f4f4',
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF', 
+    borderRadius: 20,
     marginBottom: 20,
     padding: 15,
-    height: 200, 
+    height: 200,
+    borderWidth: 5,
+    borderColor: '#1d3b1d',
+
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4, // 안드로이드
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  icon: {
-    fontSize: 20,
-    marginRight: 8,
-  },
-  label: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
+
   innerScroll: {
     flex: 1,
+    backgroundColor: '#FFFFFF', 
   },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 0,
-    marginLeft: 12,
-  },
-  dot: {
-    marginRight: 6,
-    color: 'black',
-    fontSize:40,
-  },
-  itemText: {
-    fontSize: 20,
-  },
-  footerDesign: {
-    position: 'absolute',
-    bottom: 0,
-    width: '100%',
-    height: "80%",
-    zIndex: -1,
-  },
+
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+
+
+  itemRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, marginLeft: 12 },
+  dotText: { marginRight: 6, color: 'black', fontSize: 22, lineHeight: 26 },
+  itemText: { fontSize: 16, fontWeight: '700' },
+  addrText: { fontSize: 13, color: '#666' },
+
+  label: { fontSize: 18, fontWeight: 'bold' },
+  ribbonTag: { backgroundColor: '#E67249', paddingVertical: 4, paddingHorizontal: 10, borderTopLeftRadius: 10, borderBottomLeftRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  ribbonText: { fontSize: 16, color: '#fff' },
+  headerTextContainer: { backgroundColor: '#fff', paddingVertical: 4, paddingHorizontal: 12, borderTopRightRadius: 10, borderBottomRightRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E67249', marginLeft: -1 },
+
+  flagImage: { position: 'absolute', top: -8, right: -10, width: 70, height: 60, zIndex: 10, marginRight: 10 },
 });
