@@ -376,10 +376,10 @@ const handleSavePlan = async () => {
   const mapCategoryToType = (categoryOrType, optionId) => {
     if (optionId === "mountain") return "mountain";
     switch (categoryOrType) {
-      case "관광지": return "spot";
-      case "맛집": return "restaurant";
-      case "관광시설": return "cafe";
-      case "숙박": return "stay";
+      case "관광지" || 'spot': return "spot";
+      case "맛집" || 'restaurant': return "restaurant";
+      case "관광시설" || 'cafe': return "cafe";
+      case "숙박" || 'stay': return "stay";
       case "mountain": return "mountain";
       default:
         console.warn("알 수 없는 카테고리/타입:", categoryOrType, "→ 기본값 spot");
@@ -490,7 +490,7 @@ const handleSavePlan = async () => {
     const destination = {
       name: finalDestination.name,
       location: finalDestination.location,
-      type: mapCategoryToType(finalDestination.type ?? finalDestination.category, finalDestination.id),
+      type: mapCategoryToType(finalDestination.category, finalDestination.id),
       position: (finalDestination.mapX != null && finalDestination.mapY != null)
           ? { mapX: finalDestination.mapX, mapY: finalDestination.mapY }
           : null,
