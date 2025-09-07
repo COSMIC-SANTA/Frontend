@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { Calendar } from 'react-native-calendars';
 import { WebView } from "react-native-webview";
-import { mountainService } from "../services/api.js";
+import { mountainService, planService } from "../services/api.js";
 
 const { width, height } = Dimensions.get('window');
 
@@ -42,6 +42,10 @@ export default function MountainDirectionScreen() {
 
     // 모달 상태 추가
   const [modalVisible, setModalVisible] = useState(false);
+
+    // 선택된 날짜를 저장할 state 추가
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [isDateConfirmed, setIsDateConfirmed] = useState(false);
 
     // 시작 버튼 클릭 시 모달 띄우기
   const handleStartButtonPress = () => {
@@ -86,6 +90,58 @@ export default function MountainDirectionScreen() {
     })();
     // 최초 1회만
   }, []);
+
+  // handleSavePlan 함수를 컴포넌트 내부로 이동하고 완성
+const handleSavePlan = async () => {
+  try {
+    // handleDecideRoute에서 경로 데이터 가져오기
+    const routeData = await handleDecideRoute();
+    
+    if (!routeData) {
+      Alert.alert("오류", "경로 데이터를 생성할 수 없습니다.");
+      return;
+    }
+
+    // 선택된 날짜와 함께 최종 여행 계획 데이터 생성
+    const finalTravelPlan = {
+      ...routeData,
+      targetDate: `${selectedDate}T00:00:00`, // selectedDate를 targetDate로 추가
+      // 
+    };
+
+    // 콘솔에 최종 데이터 출력
+    console.log("=== 최종 여행 계획 저장 데이터 ===");
+    console.log("targetDate:", finalTravelPlan.targetDate);
+    console.log("전체 데이터:", JSON.stringify(finalTravelPlan, null, 2));
+
+    // 여기서 실제 저장 로직 구현 (예: planService.savePlan 호출)
+    // const result = await planService.savePlan(finalTravelPlan);
+    // if (result.success) {
+    //   Alert.alert("성공", "여행 계획이 저장되었습니다!");
+    // }
+
+    const result = await planService.savePlan(finalTravelPlan);
+    console.log(result.success);
+
+    // 임시로 성공 메시지 표시
+    Alert.alert(
+      "여행 계획 저장 완료", 
+      `목적지: ${selectedDestination.name}\n날짜: ${selectedDate}\n데이터가 콘솔에 출력되었습니다.`,
+      [
+        {
+          text: "확인",
+          onPress: () => {
+            setModalVisible(false); // 모달 닫기
+            // router.back(); // 필요시 이전 화면으로
+          }
+        }
+      ]
+    );
+  } catch (error) {
+    console.error("여행 계획 저장 중 오류:", error);
+    Alert.alert("오류", "여행 계획 저장 중 문제가 발생했습니다.");
+  }
+};
 
     // 경로 정보를 렌더링하는 함수
   const renderRouteTimeline = () => {
@@ -188,9 +244,20 @@ export default function MountainDirectionScreen() {
           <TouchableOpacity 
             style={[styles.actionButton, styles.startRouteButton]}
             onPress={() => {
+              // optimalRouteData가 존재하는지 먼저 확인
+              if (!optimalRouteData?.data) {
+                Alert.alert("오류", "경로 데이터가 없습니다. 다시 시도해주세요.");
+                return;
+              }
+
+              // selectedRoute를 설정하되, 직접 optimalRouteData.data를 사용
               setSelectedRoute({data: optimalRouteData.data});
-              console.log(selectedRoute.data)
+              
+              // 콘솔 로그에서도 optimalRouteData.data를 직접 사용
+              console.log("선택된 경로 데이터:", optimalRouteData.data);
+              
               handleStartNavigation();
+              handleStartButtonPress();
             }}
           >
             <Text style={styles.startRouteButtonText}>이 경로로 시작</Text>
@@ -400,7 +467,7 @@ export default function MountainDirectionScreen() {
   };
 
   // 분류/데이터 정규화 + 최적경로 요청 페이로드 생성
-  const formatRouteData = async (finalDestination) => {
+  const formatRouteData = async (finalDestination, includeMountain = false) => {
     if (!currentLocation || parsedTravelPlan.length === 0 || !finalDestination) {
       console.log("데이터 부족:", {
         currentLocation: !!currentLocation,
@@ -409,6 +476,15 @@ export default function MountainDirectionScreen() {
       });
       return null;
     }
+
+  // 산 정보 (조건부로 포함)
+  let mountainObj = null;
+  if (includeMountain && mountainName) {
+    const m = await getMountainPosition(mountainName);
+    if (m) {
+      mountainObj = { name: m.name, location: m.location, position: m.position };
+    }
+  }
 
     // 목적지 객체(표준형)
     const destination = {
@@ -419,13 +495,6 @@ export default function MountainDirectionScreen() {
           ? { mapX: finalDestination.mapX, mapY: finalDestination.mapY }
           : null,
     };
-
-    // 산 정보(있으면 포함)
-    let mountainObj = null;
-    if (mountainName) {
-      const m = await getMountainPosition(mountainName);
-      mountainObj = { name: m.name, location: m.location, position: m.position };
-    }
 
     // 카테고리별 분류
     const categorized = { tourist_spots: [], restaurants: [], cafes: [], stays: [] };
@@ -459,13 +528,13 @@ export default function MountainDirectionScreen() {
       ...(normalize(categorized.tourist_spots) ? { spots: normalize(categorized.tourist_spots) } : {}),
     };
 
-    console.log("최적 경로 요청 데이터:", routeData);
+    console.log(`최적 경로 데이터 (mountain 포함: ${includeMountain}):`, routeData);
     return routeData;
   };
 
   // 최적 경로 요청
   const requestOptimalRoute = async (finalDestination) => {
-    const routeData = await formatRouteData(finalDestination); // ✅ async/await
+    const routeData = await formatRouteData(finalDestination, false); // ✅ async/await
     if (!routeData?.destination?.position) {
       console.log("경로 데이터 준비 안됨(목적지 좌표 없음)");
       return;
@@ -618,14 +687,6 @@ const generateRouteSteps = () => {
     });
   }
 
-  const getWaypointIcon = (name) => {
-  if (name.includes('카페') || name.includes('커피')) return "☕";
-  if (name.includes('맛집') || name.includes('식당')) return "🍽️";
-  if (name.includes('관광') || name.includes('명소')) return "🏞️";
-  if (name.includes('숙박') || name.includes('호텔')) return "🏨";
-  return "📍";
-};
-
   // 최종 목적지 추가
   if (selectedDestination.mapX && selectedDestination.mapY) {
     const finalDistance = calculateDistance(
@@ -678,13 +739,15 @@ const generateRouteSteps = () => {
 
     try {
       // formatRouteData를 사용하여 기본 경로 데이터 생성
-      const baseRouteData = await formatRouteData(selectedDestination);
+      const baseRouteData = await formatRouteData(selectedDestination, true);
       console.log("baseRouteData ", baseRouteData);
       
       if (!baseRouteData) {
         Alert.alert("오류", "경로 데이터를 생성할 수 없습니다.");
         return;
       }
+
+      return baseRouteData;
     } catch (error) {
       console.error("경로 데이터 생성 중 오류:", error);
       Alert.alert("오류", "경로 데이터를 준비하는 중 오류가 발생했습니다.");
@@ -754,14 +817,16 @@ const generateRouteSteps = () => {
               opacity: selectedRoute && selectedDestination ? 1 : 0.5,
             },
           ]}
-          onPress={handleStartButtonPress}
+          onPress={
+            handleSavePlan
+          }
           disabled={!selectedRoute || !selectedDestination}
         >
           <Text style={styles.startButtonText}>🚀 시작</Text>
         </TouchableOpacity>
       </View>
 
-            {/* 모달창 */}
+      {/* 모달창 */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -773,6 +838,7 @@ const generateRouteSteps = () => {
             <Calendar
             onDayPress={(day) => {
               console.log('선택된 날', day);
+              setSelectedDate(day.dateString);
             }}
             monthFormat={'yyyy MM'}
             hideExtraDays={true}
@@ -781,7 +847,9 @@ const generateRouteSteps = () => {
             
             <TouchableOpacity
               style={[styles.modalCloseButton, { backgroundColor: "#4CAF50" }]}
-              onPress={closeModal}
+              onPress={
+                closeModal
+              }
             >
               <Text style={styles.modalCloseButtonText}>확인</Text>
             </TouchableOpacity>
