@@ -1,5 +1,4 @@
-// services/api.js (통합/정리본 - JS)
-
+// services/api.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
@@ -24,7 +23,6 @@ async function withRetry(fn, {
       return await fn();
     } catch (err) {
       lastErr = err;
-      // 취소이거나 재시도 불가이거나 마지막 시도면 바로 throw
       if (axios.isCancel?.(err) || !isRetryable(err) || i === tries - 1) {
         throw err;
       }
@@ -88,13 +86,12 @@ const API_BASE_URL = getApiUrl();
 
 /* ─────────────────────────────────────────────
  *  Axios 인스턴스 2종
- *   - api: 기본(Content-Type 가변, 주로 form)
+ *   - api: 기본(Content-Type 가변, 주로 form/json 혼용)
  *   - apiJson: JSON 전용
  * ───────────────────────────────────────────── */
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
-  // Content-Type는 요청마다 지정 (form/json 혼용)
 });
 
 const apiJson = axios.create({
@@ -105,8 +102,7 @@ const apiJson = axios.create({
 
 /* ─────────────────────────────────────────────
  *  공통 요청 인터셉터(토큰 주입)
- *  - 토큰이 있으면 Authorization 헤더 추가
- *  - 특정 요청에서 토큰을 강제로 빼려면 config.skipAuth = true
+ *  - 특정 요청에서 토큰을 빼려면 config.skipAuth = true
  * ───────────────────────────────────────────── */
 const attachAuthInterceptor = (instance, tag) => {
   instance.interceptors.request.use(
@@ -117,13 +113,9 @@ const attachAuthInterceptor = (instance, tag) => {
           if (token) {
             config.headers = config.headers || {};
             config.headers.Authorization = `Bearer ${token}`;
-            console.log(
-              `[${tag} req] Auth ok → ${config.method?.toUpperCase()} ${config.url}`
-            );
+            console.log(`[${tag} req] Auth ok → ${config.method?.toUpperCase()} ${config.url}`);
           } else {
-            console.log(
-              `[${tag} req] No token → ${config.method?.toUpperCase()} ${config.url}`
-            );
+            console.log(`[${tag} req] No token → ${config.method?.toUpperCase()} ${config.url}`);
           }
         }
       } catch (e) {
@@ -134,14 +126,12 @@ const attachAuthInterceptor = (instance, tag) => {
     (error) => Promise.reject(error)
   );
 };
-
 attachAuthInterceptor(api, 'api');
 attachAuthInterceptor(apiJson, 'apiJson');
 
 /* ─────────────────────────────────────────────
  *  공통 응답 인터셉터(정규화 + 401/400 인증정리)
  *  - 어떤 응답이든 { message, data }로 통일
- *  - 401 또는 인증 관련 400에서 토큰/쿠키 정리
  * ───────────────────────────────────────────── */
 const normalizeResponse = (res) => {
   const d = res?.data;
@@ -155,7 +145,6 @@ const attachResponseInterceptor = (instance, tag) => {
   instance.interceptors.response.use(
     (res) => {
       const norm = normalizeResponse(res);
-      // console.log(`[${tag} res]`, res.status, res.config.url, norm);
       return norm;
     },
     async (err) => {
@@ -177,18 +166,15 @@ const attachResponseInterceptor = (instance, tag) => {
     }
   );
 };
-
 attachResponseInterceptor(api, 'api');
 attachResponseInterceptor(apiJson, 'apiJson');
 
 /* ─────────────────────────────────────────────
  *  서비스 레이어
- *  모든 함수는 일관되게 { message, data } 규격을 사용
  * ───────────────────────────────────────────── */
 
-// 1) 배너: 관심사별 목록 + 배너 클릭(상세 조회/카운팅)
+// 1) 배너: 관심사별 목록
 export const mountainService = {
-  // 조회성 → withRetry 적용
   fetchByInterest: async (interest, { signal } = {}) => {
     const { data: payload } = await withRetry(
       () =>
@@ -207,18 +193,19 @@ export const mountainService = {
     }));
   },
 
-  // 상태변경/집계 → 재시도 금지(중복 방지)
+  // (참고용, 현재 미사용) - 서버가 @RequestParam을 요구하면 form 또는 params로 바꿔야 함
   fetchDetailByName: async (mountainName, { signal } = {}) => {
+    const body = new URLSearchParams({ mountainName }).toString();
     const res = await api.post(
       '/api/main/banner/click',
-      { mountainName },
-      { signal, headers: { 'Content-Type': 'application/json' } }
+      body,
+      { signal, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
     );
     return res.data;
   },
 };
 
-// 2) 날씨 (산 이름 → 좌표 검색, 좌표 → 현재 날씨)
+// 2) 날씨
 export const weatherService = {
   searchMountainsByName: async (mountainName, { signal } = {}) => {
     const { data: payload } = await api.get('/api/mountains/search', {
@@ -234,7 +221,6 @@ export const weatherService = {
     }));
   },
 
-  // 조회성 → withRetry 적용 (간헐 5xx 방어)
   getCurrentWeather: async ({ mapX, mapY }, { signal } = {}) => {
     const x = Number(mapX);
     const y = Number(mapY);
@@ -261,8 +247,7 @@ export const weatherService = {
       if (code === 'RAIN') return 'RAIN';
       if (code === 'NO_RAIN') return gloomy === 'NO_CLOUD' ? 'CLEAR' : 'CLOUDY';
       return code || null;
-    };
-
+      };
     return {
       time: cur?.time ?? null,
       temperature: typeof cur?.temperature === 'number' ? cur.temperature : null,
@@ -295,7 +280,6 @@ export const facilityService = {
         distance: Number(it?.distance ?? 0),
       }));
 
-    // 1차: JSON 바디(조회성 → withRetry)
     try {
       const { data: payload } = await withRetry(
         () =>
@@ -313,7 +297,6 @@ export const facilityService = {
         pharmacy: normalize(payload?.pharmacy),
       };
     } catch (err) {
-      // 2차: x-www-form-urlencoded 폴백 (여기도 조회성 → withRetry)
       const body = new URLSearchParams({
         mapX: String(xNum),
         mapY: String(yNum),
@@ -347,7 +330,7 @@ export const loginService = {
       password: String(password ?? '').trim(),
     };
 
-    // 로그인은 보통 공개 엔드포인트 → skipAuth로 Authorization 생략 보장
+    // 공개 엔드포인트 → skipAuth로 Authorization 생략
     const { data } = await apiJson.post('/api/auth/login', requestData, {
       skipAuth: true,
     });
@@ -384,7 +367,7 @@ export const planService = {
       if (error.request) {
         return { success: false, error: '서버에 연결할 수 없습니다.' };
       }
-      return { success: false, error: '요청 처리 중 오류가 발생했습니다.' };
+      return { success: false, error: '요청 처리 중 오류' };
     }
   },
 
@@ -534,25 +517,33 @@ export const tourismService = {
     }
   },
 
+  // ★ 핵심 수정: 서버가 @RequestParam("mountainName")을 요구 → form urlencoded 사용
+  //   - DevTools에서 Request Payload ❌, Form Data ✅ 로 떠야 함
+  //   - 400일 때 쿼리 파라미터 폴백
   clickBanner: async (mountainName) => {
     try {
-      const { data, message } = await api.post(
+      const body = new URLSearchParams({ mountainName }).toString();
+      const { data } = await api.post(
         '/api/main/banner/click',
-        { mountainName },
-        { headers: { 'Content-Type': 'application/json' } }
+        body,
+        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       );
-      return { data, message };
+      return data; // payload 그대로
     } catch (error) {
-      if (error.response) {
-        return {
-          error: error.response.data?.message || '배너 클릭 실패',
-          status: error.response.status,
-        };
+      if (error?.response?.status === 400) {
+        // 폴백: 쿼리 파라미터 방식
+        const { data } = await api.post(
+          '/api/main/banner/click',
+          null,
+          { params: { mountainName } }
+        );
+        return data;
       }
-      if (error.request) {
-        return { error: '서버에 연결할 수 없습니다.' };
-      }
-      return { error: '요청 처리 중 오류' };
+      const msg =
+        error?.response?.data?.message ||
+        error?.message ||
+        '배너 클릭 실패';
+      throw new Error(msg);
     }
   },
 

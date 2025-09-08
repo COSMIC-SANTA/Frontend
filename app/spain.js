@@ -1,10 +1,11 @@
 // app/MainScreen.js
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Easing,
   FlatList,
   Image,
   Platform,
@@ -17,11 +18,53 @@ import {
   View
 } from "react-native";
 import Line from "../assets/images/Line_1.svg";
-import apiClient, { mountainService, weatherService } from "../services/api";
+import apiClient, { mountainService, weatherService, tourismService } from "../services/api";
 import BottomNavBar from "./s_navigationbar";
 
-const CATEGORIES = ["popular", "high", "low\nmountain", "activity\n(leisure)"];
+/** Responsive helpers */
+function useResponsive() {
+  const { width: W, height: H, fontScale } = useWindowDimensions();
+  const guidelineBaseWidth = 375;
+  const guidelineBaseHeight = 812;
 
+  const scale = (size) => Math.round((W / guidelineBaseWidth) * size);
+  const vscale = (size) => Math.round((H / guidelineBaseHeight) * size);
+  const mscale = (size, factor = 0.5) =>
+    Math.round(size + (scale(size) - size) * factor);
+
+  const isSmall = W < 360;
+  const isTablet = W >= 768;
+
+  const CARD_W = Math.min(260, Math.max(160, Math.floor(W * (isTablet ? 0.28 : 0.52))));
+  const CARD_H = Math.round(CARD_W * 1.5);
+
+  const HEADER_PB = isTablet ? vscale(160) : isSmall ? vscale(96) : vscale(120);
+
+  const PERSON_SIZE = Math.min(isTablet ? W * 0.22 : W * 0.38, 260);
+  const PERSON_TOP = isSmall ? vscale(28) : vscale(36);
+  const PERSON_RIGHT = isTablet ? scale(48) : scale(24);
+
+  const BODY_CURVE = isTablet ? scale(72) : scale(60);
+  const BODY_OVERLAP = -Math.min(HEADER_PB - vscale(20), vscale(110));
+
+  const curveW = W * 1.2;
+  const curveH = W * 0.5;
+  const leftCurveBottom = vscale(10);
+  const leftCurveLeft = -W * 0.9;
+  const rightCurveBottom = -vscale(140);
+  const rightCurveShift = W * 0.35;
+
+  const f = (size) => Math.round(mscale(size) / Math.min(fontScale, 1.2));
+
+  return {
+    W, H, isSmall, isTablet, CARD_W, CARD_H, HEADER_PB,
+    PERSON_SIZE, PERSON_TOP, PERSON_RIGHT,
+    BODY_CURVE, BODY_OVERLAP,
+    curveW, curveH, leftCurveBottom, leftCurveLeft, rightCurveBottom, rightCurveShift, f,
+  };
+}
+
+const CATEGORIES = ["popular", "high", "low\nmountain", "activity\n(leisure)"];
 const INTEREST_ENUM = {
   popular: "POPULAR",
   high: "HIGH",
@@ -36,79 +79,7 @@ const MEDALS = [
   { id: "4", title: "explore", medal: require("../assets/images/redmedal.png") },
 ];
 
-/** ─────────────────────────────────────────────
- *  Responsive helpers (no external libs)
- *  - 기준폭 375, 기준높이 812
- *  - scale, vscale, mscale 로 크기/폰트/여백 통일
- *  - 태블릿/초소형 기기 분기 포함
- *  ───────────────────────────────────────────── */
-function useResponsive() {
-  const { width: W, height: H, fontScale } = useWindowDimensions();
-  const guidelineBaseWidth = 375;
-  const guidelineBaseHeight = 812;
-
-  const scale = (size) => Math.round((W / guidelineBaseWidth) * size);
-  const vscale = (size) => Math.round((H / guidelineBaseHeight) * size);
-  const mscale = (size, factor = 0.5) =>
-    Math.round(size + (scale(size) - size) * factor);
-
-  const isSmall = W < 360;
-  const isTablet = W >= 768;
-
-  // 카드 크기: 화면폭의 비율 + 범위 클램프
-  const CARD_W = Math.min(260, Math.max(160, Math.floor(W * (isTablet ? 0.28 : 0.52))));
-  const CARD_H = Math.round(CARD_W * 1.5);
-
-  // 헤더 높이/여백
-  const HEADER_PB = isTablet ? vscale(160) : isSmall ? vscale(96) : vscale(120);
-
-  // 사람 일러스트 크기/위치
-  const PERSON_SIZE = Math.min(isTablet ? W * 0.22 : W * 0.38, 260);
-  const PERSON_TOP = isSmall ? vscale(28) : vscale(36);
-  const PERSON_RIGHT = isTablet ? scale(48) : scale(24);
-
-  // 큰 타이틀 폰트
-  const titleBase = isTablet ? 50 : isSmall ? 34 : 40;
-
-  // body 라운드/오버랩
-  const BODY_CURVE = isTablet ? scale(72) : scale(60);
-  const BODY_OVERLAP = -Math.min(HEADER_PB - vscale(20), vscale(110));
-
-  // 곡선 SVG(좌/우) 위치 파라미터 (절대값 대신 비율)
-  const curveW = W * 1.2;
-  const curveH = W * 0.5;
-  const leftCurveBottom = vscale(10);
-  const leftCurveLeft = -W * 0.9; // 화면 밖에서 시작
-  const rightCurveBottom = -vscale(140);
-  const rightCurveShift = W * 0.35;
-
-  // 폰트 스케일 보정(시스템 글자 크게 설정 시 과도 확대 방지)
-  const f = (size) => Math.round(mscale(size) / Math.min(fontScale, 1.2));
-
-  return {
-    W,
-    H,
-    isSmall,
-    isTablet,
-    CARD_W,
-    CARD_H,
-    HEADER_PB,
-    PERSON_SIZE,
-    PERSON_TOP,
-    PERSON_RIGHT,
-    BODY_CURVE,
-    BODY_OVERLAP,
-    curveW,
-    curveH,
-    leftCurveBottom,
-    leftCurveLeft,
-    rightCurveBottom,
-    rightCurveShift,
-    f,
-  };
-}
-
-/** 좌표 보강: 이름으로 다시 검색해서 position.mapX/mapY 우선 사용(0,0 무효 처리) */
+/** 좌표 보강 */
 async function fetchCoordsByName(name) {
   const res = await apiClient.get("/api/mountains/search", { params: { mountainName: name } });
   const payload = res?.data;
@@ -120,93 +91,154 @@ async function fetchCoordsByName(name) {
   return { ok: Number.isFinite(x) && Number.isFinite(y) && !(x === 0 && y === 0), mapX: x, mapY: y };
 }
 
-function BannerCard({ item, cardW, cardH }) {
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [detail, setDetail] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
+/** 서버 응답 정규화 */
+function normalizeBannerInfo(raw) {
+  if (!raw) return null;
+  const obj = Array.isArray(raw) ? raw[0] : raw;
 
-  const rotate = useMemo(() => new Animated.Value(0), []);
-  const frontInterpolate = rotate.interpolate({ inputRange: [0, 180], outputRange: ["0deg", "180deg"] });
-  const backInterpolate = rotate.interpolate({ inputRange: [0, 180], outputRange: ["180deg", "360deg"] });
+  const name = obj.mountainName ?? obj.name ?? obj.title ?? obj.mntiname ?? null;
+  const details = obj.mntidetails ?? obj.details ?? obj.description ?? obj.summary ?? null;
+  const height = obj.high ?? obj.height ?? obj.altitude ?? obj.elevation ?? null;
+  const top = obj.mntitop ?? obj.feature ?? obj.point ?? obj.peak ?? null;
+  const location = obj.location ?? obj.addr ?? obj.address ?? obj.region ?? null;
 
-  const flipTo = (deg) => {
-    Animated.spring(rotate, { toValue: deg, useNativeDriver: true, friction: 8, tension: 12 }).start();
-  };
+  return { mountainName: name, mntidetails: details, high: height, mntitop: top, location, __raw: obj };
+}
 
-  const loadDetail = async () => {
-    if (detail || loading) return;
-    setLoading(true);
-    setErr("");
-    try {
-      const data = await mountainService.fetchDetailByName(item.name);
-      setDetail(data);
-    } catch (e) {
-      setErr(e.message || "상세 정보를 가져오지 못했습니다.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const onPress = async () => {
-    if (!isFlipped) {
-      await loadDetail();
-      setIsFlipped(true);
-      flipTo(180);
-    } else {
-      setIsFlipped(false);
-      flipTo(0);
-    }
-  };
+/** 배너 카드 */
+function BannerCard({
+  item,
+  cardW,
+  cardH,
+  animValue,
+  info,
+  onPress,
+  onClose,
+  isBack,
+  router,
+  setOuterScrollEnabled,      // ★ 부모 스크롤 제어 함수
+}) {
+  const frontOpacity = animValue.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 0, 0],
+  });
+  const backOpacity = animValue.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, 0, 1],
+  });
+  const frontRotate = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "180deg"],
+  });
+  const backRotate = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["180deg", "360deg"],
+  });
 
   return (
     <View style={styles.cardWrapper}>
+      {/* 뒷면일 때는 탭-뒤집기 비활성화 → 스크롤 제스처와 충돌 방지 */}
       <TouchableOpacity
         style={[styles.card, { width: cardW, height: cardH }]}
-        onPress={onPress}
+        onPress={() => onPress(item)}
         activeOpacity={0.9}
+        disabled={isBack}   // ★ 여기!
       >
-        {/* Front */}
-        <Animated.View
-          style={[
-            styles.flipFront,
-            { width: cardW, height: cardH, transform: [{ rotateY: frontInterpolate }] },
-          ]}
-        >
-          <Image
-            source={item.image ? { uri: item.image } : require("../assets/images/namelessmountain.png")}
-            style={styles.mountainImage}
-          />
-        </Animated.View>
+        <View style={styles.cardInner}>
+          {/* 앞면 */}
+          <Animated.View
+            style={[
+              styles.cardFace,
+              styles.cardFront,
+              {
+                opacity: frontOpacity,
+                transform: [{ rotateY: frontRotate }],
+                width: cardW,
+                height: cardH,
+              },
+            ]}
+          >
+            <Image
+              source={item.image ? { uri: item.image } : require("../assets/images/namelessmountain.png")}
+              style={styles.mountainImage}
+            />
+          </Animated.View>
 
-        {/* Back */}
-        <Animated.View
-          style={[
-            styles.flipBack,
-            { width: cardW, height: cardH, transform: [{ rotateY: backInterpolate }] },
-          ]}
-        >
-          {loading ? (
-            <ActivityIndicator size="large" />
-          ) : err ? (
-            <View style={{ alignItems: "center" }}>
-              <Text style={{ color: "#C43D3D", marginBottom: 8 }}>{err}</Text>
-              <TouchableOpacity onPress={loadDetail} style={styles.retryBtn}>
-                <Text style={{ color: "#fff", fontWeight: "700" }}>다시 시도</Text>
-              </TouchableOpacity>
-            </View>
-          ) : detail ? (
-            <View>
-              <Text style={styles.backTitle}>{detail.mountainName || item.name}</Text>
-              {detail.mountainAddress ? <Text style={styles.backSub}>{detail.mountainAddress}</Text> : null}
-              {detail.high ? <Text style={styles.backMeta}>고도: {detail.high}</Text> : null}
-              {detail.mntidetails ? <Text style={styles.backBody} numberOfLines={5}>{detail.mntidetails}</Text> : null}
-              {detail.mntitop ? <Text style={styles.backFoot} numberOfLines={2}>대표 봉우리: {detail.mntitop}</Text> : null}
-            </View>
-          ) : (
-            <Text style={{ color: "#000" }}>상세 정보가 없습니다.</Text>
-          )}
-        </Animated.View>
+          {/* 뒷면 (내부 스크롤 독립 + 부모 스크롤 잠금/해제) */}
+          <Animated.View
+            style={[
+              styles.cardFace,
+              styles.cardBack,
+              {
+                opacity: backOpacity,
+                transform: [{ rotateY: backRotate }],
+                width: cardW,
+                height: cardH,
+              },
+            ]}
+            pointerEvents="auto"
+          >
+            {/* 닫기 버튼(뒤집기 복귀) */}
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={onClose}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Ionicons name="close" size={18} color="#325A2A" />
+            </TouchableOpacity>
+
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={styles.infoContainer}
+              nestedScrollEnabled={true}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+              // ★ 터치/드래그 중 부모 스크롤 잠금
+              onTouchStart={() => setOuterScrollEnabled(false)}
+              onTouchEnd={() => setOuterScrollEnabled(true)}
+              onScrollBeginDrag={() => setOuterScrollEnabled(false)}
+              onScrollEndDrag={() => setOuterScrollEnabled(true)}
+              onMomentumScrollEnd={() => setOuterScrollEnabled(true)}
+              // 안드로이드에서 부모 캡처 방지
+              onStartShouldSetResponderCapture={() => true}
+            >
+              {info ? (
+                <>
+                  <Text style={styles.infoTitle}>{info.mountainName || item.name}</Text>
+
+                  <Text style={styles.infoText}>
+                    {info.mntidetails || "요약 정보가 없습니다."}
+                  </Text>
+
+                  {info.high && (
+                    <Text style={styles.infoDetail}>높이: {info.high}m</Text>
+                  )}
+
+                  {info.mntitop && (
+                    <View style={styles.infoSection}>
+                      <Text style={styles.infoSectionTitle}>특징</Text>
+                      <Text style={styles.infoSectionText}>{info.mntitop}</Text>
+                    </View>
+                  )}
+
+                  <TouchableOpacity
+                    style={styles.confirmButton}
+                    onPress={() => {
+                      const location = info?.location;
+                      if (location) {
+                        router.push(`/mountain-tourism?location=${encodeURIComponent(location)}&pageNo=1`);
+                      }
+                    }}
+                  >
+                    <Text style={styles.confirmButtonText}>확인</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <Text style={styles.infoText}>산에 대한 정보를 불러오는 중...</Text>
+              )}
+            </ScrollView>
+          </Animated.View>
+        </View>
       </TouchableOpacity>
 
       <Text style={styles.cardText}>{item.name}</Text>
@@ -224,6 +256,19 @@ export default function MainScreen() {
   const [mountains, setMountains] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // 부모 스크롤 제어 상태 ★
+  const [outerScrollEnabled, setOuterScrollEnabled] = useState(true);
+
+  // 배너 상태/애니메이션
+  const [clickedMap, setClickedMap] = useState({});
+  const animValuesRef = useRef({});
+  const getAnimValue = (name) => {
+    if (!animValuesRef.current[name]) {
+      animValuesRef.current[name] = new Animated.Value(0); // 0=앞, 1=뒤
+    }
+    return animValuesRef.current[name];
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -248,12 +293,11 @@ export default function MainScreen() {
 
   const handleNavigation = (screen) => router.push(`/${screen}`);
 
-  // --- 날씨 검색 상태 ---
+  // 날씨 상태
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [candidates, setCandidates] = useState([]);
-
   const [selectedMountain, setSelectedMountain] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState("");
@@ -296,21 +340,14 @@ export default function MainScreen() {
     setWeatherLoading(true);
 
     try {
-      // 1) 기본 좌표 파싱
       let x = Number(item.mapX);
       let y = Number(item.mapY);
-
-      // 2) 좌표 보강
       if (!Number.isFinite(x) || !Number.isFinite(y) || (x === 0 && y === 0)) {
         const { ok, mapX, mapY } = await fetchCoordsByName(item.mountainName);
         if (!ok) throw new Error("좌표를 찾지 못했습니다.");
         x = mapX; y = mapY;
       }
-
-      // 3) UI 상태에도 보강 좌표 반영
       setSelectedMountain((prev) => ({ ...(prev || item), mapX: x, mapY: y }));
-
-      // 4) 날씨 호출(POST)
       const res = await weatherService.getCurrentWeather({ mapX: x, mapY: y });
       setWeather(res);
     } catch (e) {
@@ -322,7 +359,85 @@ export default function MainScreen() {
     }
   };
 
-  const renderCard = ({ item }) => <BannerCard item={item} cardW={R.CARD_W} cardH={R.CARD_H} />;
+  /** 배너 클릭 핸들러 */
+  const handleCardPress = async (item) => {
+    const name = item.name;
+    const anim = getAnimValue(name);
+
+    // 뒤집힌 상태면 복귀
+    if (clickedMap[name]?.clicked) {
+      Animated.timing(anim, {
+        toValue: 0,
+        duration: 260,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start(() => {
+        setClickedMap((prev) => {
+          const copy = { ...prev };
+          delete copy[name];
+          return copy;
+        });
+      });
+      return;
+    }
+
+    try {
+      const payload = await tourismService.clickBanner(item.name);
+      const info = normalizeBannerInfo(payload);
+      setClickedMap((prev) => ({ ...prev, [name]: { clicked: true, info } }));
+
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 300,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    } catch (err) {
+      setClickedMap((prev) => ({ ...prev, [name]: { clicked: true, info: null, error: err.message } }));
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 300,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    }
+  };
+
+  const handleCloseBack = (name) => {
+    const anim = getAnimValue(name);
+    Animated.timing(anim, {
+      toValue: 0,
+      duration: 260,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start(() => {
+      setClickedMap((prev) => {
+        const copy = { ...prev };
+        delete copy[name];
+        return copy;
+      });
+      // 혹시 잠겨 있으면 풀기
+      setOuterScrollEnabled(true);
+    });
+  };
+
+  const renderCard = ({ item }) => {
+    const isBack = !!clickedMap[item.name]?.clicked;
+    return (
+      <BannerCard
+        item={item}
+        cardW={R.CARD_W}
+        cardH={R.CARD_H}
+        animValue={getAnimValue(item.name)}
+        info={clickedMap[item.name]?.info}
+        onPress={handleCardPress}
+        onClose={() => handleCloseBack(item.name)}
+        isBack={isBack}
+        router={router}
+        setOuterScrollEnabled={setOuterScrollEnabled}   // ★ 전달
+      />
+    );
+  };
 
   const weatherLabel = (code) => {
     if (!code) return "-";
@@ -349,18 +464,18 @@ export default function MainScreen() {
       <ScrollView
         style={[styles.container]}
         contentContainerStyle={styles.content}
-        nestedScrollEnabled
+        nestedScrollEnabled={true}
+        keyboardShouldPersistTaps="handled"
+        scrollEnabled={outerScrollEnabled}   // ★ 부모 스크롤 on/off
       >
         {/* 헤더 */}
         <View style={[styles.headerContainer, { paddingBottom: R.HEADER_PB }]}>
-          {/* 왼쪽 곡선 (비율 기반 배치) */}
           <View style={{ position: "absolute", bottom: R.leftCurveBottom, left: R.leftCurveLeft, zIndex: -1 }}>
             <Line width={R.curveW} height={R.curveH} />
           </View>
           <View style={{ position: "absolute", bottom: R.leftCurveBottom + 35, left: R.leftCurveLeft + 0.5, zIndex: -1 }}>
             <Line width={R.curveW} height={R.curveH} />
           </View>
-          {/* 오른쪽 곡선 */}
           <View style={{ position: "absolute", bottom: R.rightCurveBottom, right: 0, zIndex: -1 }}>
             <Line width={R.curveW} height={R.curveH} style={{ transform: [{ translateX: R.rightCurveShift }] }} />
           </View>
@@ -382,25 +497,23 @@ export default function MainScreen() {
           </View>
         </View>
 
+        {/* 사람 이미지 */}
         <Image
-  source={require("../assets/images/mainperson.png")}
-  style={{
-    position: "absolute",
-    // ✅ 모바일은 기존 값, 웹은 별도 보정
-    top: Platform.OS === "web"
-      ? R.PERSON_TOP + R.HEADER_PB - R.PERSON_SIZE * 0.45
-      : R.PERSON_TOP + R.HEADER_PB - R.PERSON_SIZE * 0.35,
-    right: Platform.OS === "web"
-      ? R.PERSON_RIGHT + R.W * 0.08
-      : R.PERSON_RIGHT + R.W * 0.02,
-    width: R.PERSON_SIZE,
-    height: R.PERSON_SIZE,
-    zIndex: 3,
-  }}
-  resizeMode="contain"
-/>
-
-
+          source={require("../assets/images/mainperson.png")}
+          style={{
+            position: "absolute",
+            top: Platform.OS === "web"
+              ? R.PERSON_TOP + R.HEADER_PB - R.PERSON_SIZE * 0.45
+              : R.PERSON_TOP + R.HEADER_PB - R.PERSON_SIZE * 0.35,
+            right: Platform.OS === "web"
+              ? R.PERSON_RIGHT + R.W * 0.08
+              : R.PERSON_RIGHT + R.W * 0.02,
+            width: R.PERSON_SIZE,
+            height: R.PERSON_SIZE,
+            zIndex: 3,
+          }}
+          resizeMode="contain"
+        />
 
         {/* 바디 */}
         <View
@@ -465,7 +578,7 @@ export default function MainScreen() {
                 decelerationRate={Platform.OS === "ios" ? 0 : 0.98}
                 snapToInterval={R.CARD_W + 20}
                 renderItem={renderCard}
-                nestedScrollEnabled
+                nestedScrollEnabled={true}
               />
             )}
           </View>
@@ -475,8 +588,6 @@ export default function MainScreen() {
             <Text style={[styles.weatherTitle, { fontSize: R.f(22), marginBottom: R.f(10) }]}>
               Search mountain weather
             </Text>
-
-            {/* 검색 인풋 */}
             <View
               style={[
                 styles.searchRow,
@@ -501,9 +612,8 @@ export default function MainScreen() {
             </View>
             {searchError ? <Text style={styles.errorText}>{searchError}</Text> : null}
 
-            {/* 자동완성 드롭다운 */}
             {candidates.length > 0 && (
-              <View style={[styles.dropdown, { borderRadius: R.f(14), maxHeight: R.vscale ? R.vscale(260) : 240 }]}>
+              <View style={[styles.dropdown, { borderRadius: R.f(14), maxHeight: 240 }]}>
                 {candidates.map((item, idx) => (
                   <TouchableOpacity
                     key={String(idx)}
@@ -522,7 +632,6 @@ export default function MainScreen() {
               </View>
             )}
 
-            {/* 선택한 산 + 날씨 카드 */}
             <View style={[styles.weatherCard, { padding: R.f(14), borderRadius: R.f(18), marginTop: R.f(12) }]}>
               <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
                 <Ionicons name="trail-sign-outline" size={R.f(18)} color="#325A2A" style={{ marginRight: 6 }} />
@@ -607,7 +716,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-start",
     zIndex: 1,
-    // paddingBottom 은 런타임에서 반응형으로 주입
   },
 
   textContainer: { flexDirection: "column", zIndex: 2 },
@@ -619,7 +727,6 @@ const styles = StyleSheet.create({
   bodyContainer: {
     width: "100%",
     backgroundColor: "#FFF9E5",
-    // borderTopRadius, marginTop 은 런타임에서 반응형으로 주입
     paddingBottom: 10,
     zIndex: 2,
     flexGrow: 1,
@@ -657,12 +764,7 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#5C7145" },
   selectedCategory: { color: "#5C7145", fontWeight: "bold" },
 
-  mountainImage: {
-    width: "100%",
-    height: undefined,
-    aspectRatio: 200 / 280, // 이미지 찌그러짐 방지
-    borderRadius: 20,
-  },
+  // 카드 공통
   cardWrapper: { alignItems: "center", marginHorizontal: 10 },
   card: {
     backgroundColor: "#fff",
@@ -676,6 +778,12 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 5,
   },
+  mountainImage: {
+    width: "100%",
+    height: undefined,
+    aspectRatio: 200 / 280,
+    borderRadius: 20,
+  },
   cardText: {
     fontSize: 16,
     fontFamily: "Snell Roundhand",
@@ -685,36 +793,104 @@ const styles = StyleSheet.create({
     textTransform: "lowercase",
   },
 
-  flipFront: {
-    backfaceVisibility: "hidden",
-    borderRadius: 20,
-    overflow: "hidden",
+  // 배너 스타일
+  cardInner: {
+    width: "100%",
+    height: "100%",
+    position: "relative",
   },
-  flipBack: {
+  cardFace: {
     position: "absolute",
-    top: 0,
-    left: 0,
+    width: "100%",
+    height: "100%",
     backfaceVisibility: "hidden",
     borderRadius: 20,
-    overflow: "hidden",
-    padding: 12,
-    backgroundColor: "#fff",
+  },
+  cardFront: {
     justifyContent: "center",
-    alignItems: "flex-start",
+    alignItems: "center",
+    overflow: "hidden",
   },
-  retryBtn: {
-    backgroundColor: "#5C7145",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+  cardBack: {
+    backgroundColor: "#f8f8f8",
+    padding: 12,
+    justifyContent: "flex-start",
+    alignItems: "stretch",
   },
-  backTitle: { fontSize: 16, fontWeight: "800", color: "#000", marginBottom: 6 },
-  backSub: { fontSize: 12, color: "#666", marginBottom: 6 },
-  backMeta: { fontSize: 12, color: "#333", marginBottom: 6 },
-  backBody: { fontSize: 12, color: "#000", lineHeight: 18 },
-  backFoot: { fontSize: 12, color: "#000", marginTop: 8 },
 
-  // --- 날씨 영역 ---
+  // 뒷면 close 버튼
+  closeBtn: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    zIndex: 5,
+    backgroundColor: "#E6F1E6",
+    borderRadius: 12,
+    padding: 6,
+  },
+
+  infoContainer: {
+    flexGrow: 1,
+    paddingTop: 28, // close 버튼 공간
+    paddingBottom: 8,
+  },
+  infoTitle: {
+    fontSize: 18,
+    fontFamily: "Snell Roundhand",
+    fontWeight: "bold",
+    color: "#325A2A",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  infoText: {
+    fontSize: 12,
+    fontFamily: "Snell Roundhand",
+    color: "#333",
+    textAlign: "left",
+    lineHeight: 16,
+    marginBottom: 8,
+  },
+  infoDetail: {
+    fontSize: 14,
+    fontFamily: "Snell Roundhand",
+    fontWeight: "bold",
+    color: "#325A2A",
+    textAlign: "center",
+    marginBottom: 8,
+    backgroundColor: "#e8f5e8",
+    padding: 6,
+    borderRadius: 8,
+  },
+  infoSection: { marginTop: 8 },
+  infoSectionTitle: {
+    fontSize: 14,
+    fontFamily: "Snell Roundhand",
+    fontWeight: "bold",
+    color: "#325A2A",
+    marginBottom: 4,
+  },
+  infoSectionText: {
+    fontSize: 11,
+    fontFamily: "Snell Roundhand",
+    color: "#666",
+    textAlign: "left",
+    lineHeight: 14,
+  },
+  confirmButton: {
+    backgroundColor: "#325A2A",
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    alignItems: "center",
+  },
+  confirmButtonText: {
+    color: "white",
+    fontSize: 14,
+    fontFamily: "Snell Roundhand",
+    fontWeight: "bold",
+  },
+
+  // 날씨
   weatherSection: {},
   weatherTitle: {
     fontFamily: "Snell Roundhand",
