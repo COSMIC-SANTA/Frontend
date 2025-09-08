@@ -1,12 +1,19 @@
 // app/FacilitiesScreen.js
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import {
-  View, Text, TouchableOpacity,
-  StyleSheet, ScrollView, Image, Dimensions,
-  ActivityIndicator, Alert, RefreshControl, Platform
-} from 'react-native';
 import { useRouter } from 'expo-router';
-import BottomNavBar from './s_navigationbar';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator, Alert,
+  Dimensions,
+  Image,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text, TouchableOpacity,
+  View
+} from 'react-native';
+
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // 플랫폼 분기 맵 (components/s_compatmap.native.js / .web.js 필요)

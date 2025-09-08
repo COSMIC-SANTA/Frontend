@@ -1,9 +1,9 @@
 // app/SplashScreen.js
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform } from "react-native";
-import Line from "../assets/images/Line_1.svg";
-import { useEffect, useRef, useState, memo } from "react";
 import { useRouter } from "expo-router";
+import { memo, useEffect, useRef, useState } from "react";
+import { Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Line from "../assets/images/Line_1.svg";
 
 const { width, height } = Dimensions.get("window");
 const guidelineBaseWidth = 390;

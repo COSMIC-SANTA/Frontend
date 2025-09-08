@@ -1,6 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function BottomNavBar({ onNavigate }) {
   return (
@@ -11,10 +10,10 @@ export default function BottomNavBar({ onNavigate }) {
           <Text style={styles.label}>home</Text>
         </View>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => onNavigate('s_navigation')}>
+      <TouchableOpacity onPress={() => onNavigate('search')}>
         <View style={styles.tabItem}>
-          <Ionicons name="cloud" size={24} color="black" />
-          <Text style={styles.label}>weather</Text>
+          <Ionicons name="search" size={24} color="black" />
+          <Text style={styles.label}>Search</Text>
         </View>
       </TouchableOpacity>
       <TouchableOpacity onPress={() => onNavigate('s_convi')}>
@@ -23,7 +22,7 @@ export default function BottomNavBar({ onNavigate }) {
           <Text style={styles.label}>community</Text>
         </View>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => onNavigate('s_ranking')}>
+      <TouchableOpacity onPress={() => onNavigate('setting')}>
         <View style={styles.tabItem}>
           <Ionicons name="settings" size={24} color="black" />
           <Text style={styles.label}>setting</Text>

@@ -13,7 +13,17 @@
       "config": {
         "googleMapsApiKey": "AIzaSyCkHNadWU5CB1XCgXxLTxJcoBzlwFvAr7k"
       },
-      "bundleIdentifier": "com.anonymous.santaapp"
+      "bundleIdentifier": "com.anonymous.santaapp",
+      "NSAppTransportSecurity": {
+        "NSAllowsArbitraryLoads": true,
+        "NSExceptionDomains": {
+          "localhost": {
+            "NSExceptionAllowsInsecureHTTPLoads": true,
+            "NSExceptionMinimumTLSVersion": "1.0",
+            "NSExceptionRequiresForwardSecrecy": false
+          }
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -26,7 +36,9 @@
           "apiKey": "AIzaSyCkHNadWU5CB1XCgXxLTxJcoBzlwFvAr7k"
         }
       },
-      "package": "com.anonymous.santaapp"
+      "usesCleartextTraffic": true,
+      "networkSecurityConfig": "./assets/network_security_config.xml",
+      "package": "com.santaapp"
     },
     "web": {
       "bundler": "metro",
