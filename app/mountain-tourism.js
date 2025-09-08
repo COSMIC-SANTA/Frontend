@@ -1,6 +1,5 @@
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
-import { tourismService } from "@/services/api";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -14,6 +13,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { tourismService } from "../services/api.js";
 
 const CATEGORIES = [
   { key: 'touristSpotDTO', label: '관광지', icon: '🏞️', color: '#4CAF50' },

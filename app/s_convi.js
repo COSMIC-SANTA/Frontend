@@ -12,9 +12,8 @@ import {
   Text, TouchableOpacity,
   View
 } from 'react-native';
-
-
 import { SafeAreaView } from 'react-native-safe-area-context';
+import BottomNavBar from './s_navigationbar';
 
 // 플랫폼 분기 맵 (components/s_compatmap.native.js / .web.js 필요)
 import CompatMap, { Marker } from '../components/s_compatmap';
