@@ -203,6 +203,35 @@ export const mountainService = {
     );
     return res.data;
   },
+
+    fetchMountainXY: async (mountainName, { signal } = {}) => {
+
+    try {
+
+      const name = (mountainName ?? "").toString().trim();
+
+      if (!name) {
+        console.warn("[fetchMountainXY] mountainName 비어있음");
+        return { mountains: [] };
+      }
+
+      const response = await api.get("/api/mountains/search", {
+        params: { mountainName: name },
+        signal,
+      });
+
+      console.log("응답"+response);
+
+      // apiClient 인터셉터 때문에 response는 이미 res.data
+
+      // 형태: { mountains: [{ mountainName, mountainAddress, mapX, mapY }, ...] }
+      return response.data;
+    } catch (err) {
+      console.error("[fetchMountainXY] 에러:", err);
+      throw err;
+    }
+
+  },
 };
 
 // 2) 날씨
@@ -255,6 +284,8 @@ export const weatherService = {
       gloomyLevel: cur?.gloomyLevel ?? null,
     };
   },
+
+  
 };
 
 // 3) 주변 편의시설

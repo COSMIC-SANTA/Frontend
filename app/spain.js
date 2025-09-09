@@ -18,7 +18,7 @@ import {
   View
 } from "react-native";
 import Line from "../assets/images/Line_1.svg";
-import apiClient, { mountainService, weatherService, tourismService } from "../services/api";
+import apiClient, { mountainService, tourismService, weatherService } from "../services/api";
 import BottomNavBar from "./s_navigationbar";
 
 /** Responsive helpers */
@@ -225,8 +225,10 @@ function BannerCard({
                     style={styles.confirmButton}
                     onPress={() => {
                       const location = info?.location;
+                      const mountainName = info?.mountainName;
                       if (location) {
-                        router.push(`/mountain-tourism?location=${encodeURIComponent(location)}&pageNo=1`);
+                        
+                        router.push(`/mountain-tourism?mountainName=${encodeURIComponent(mountainName)}&location=${encodeURIComponent(location)}&pageNo=1`);
                       }
                     }}
                   >

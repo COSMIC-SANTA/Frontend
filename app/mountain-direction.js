@@ -102,6 +102,11 @@ const handleSavePlan = async () => {
       return;
     }
 
+    if(!selectedDate) {
+      Alert.alert("알림", "날짜를 먼저 선택해 주세요.");
+      return;
+    }
+
     // 선택된 날짜와 함께 최종 여행 계획 데이터 생성
     const finalTravelPlan = {
       ...routeData,
@@ -120,23 +125,27 @@ const handleSavePlan = async () => {
     //   Alert.alert("성공", "여행 계획이 저장되었습니다!");
     // }
 
-    const result = await planService.savePlan(finalTravelPlan);
-    console.log(result.success);
 
-    // 임시로 성공 메시지 표시
-    Alert.alert(
-      "여행 계획 저장 완료", 
-      `목적지: ${selectedDestination.name}\n날짜: ${selectedDate}\n데이터가 콘솔에 출력되었습니다.`,
-      [
-        {
-          text: "확인",
-          onPress: () => {
-            setModalVisible(false); // 모달 닫기
-            // router.back(); // 필요시 이전 화면으로
-          }
-        }
-      ]
-    );
+    const result = await planService.savePlan(finalTravelPlan);
+
+    const planId = result?.planId ?? null;
+
+    setModalVisible(false); // 모달 닫기
+
+    // 저장 성공 시 설정 페이지 이동
+    if (result?.success) {
+      router.replace({
+        pathname: "/setting",
+        params: {
+          planId: planId ? String(planId) : "",
+          targetDate: selectedDate,
+          dest: selectedDestination?.name ?? "",
+        },
+      });
+    } else {
+      Alert.alert("오류", "여행 계획 저장에 실패");
+    }
+
   } catch (error) {
     console.error("여행 계획 저장 중 오류:", error);
     Alert.alert("오류", "여행 계획 저장 중 문제가 발생했습니다.");
@@ -820,7 +829,7 @@ const generateRouteSteps = () => {
           onPress={
             handleSavePlan
           }
-          disabled={!selectedRoute || !selectedDestination}
+          disabled={!selectedRoute || !selectedDestination || !selectedDate}
         >
           <Text style={styles.startButtonText}>🚀 시작</Text>
         </TouchableOpacity>
