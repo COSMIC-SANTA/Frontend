@@ -58,12 +58,18 @@ function useResponsive() {
   const BODY_CURVE = isTablet ? scale(72) : scale(60);
   const BODY_OVERLAP = -Math.min(HEADER_PB - vscale(20), vscale(110));
 
-  const curveW = W * 1.2;
-  const curveH = W * 0.5;
-  const leftCurveBottom = vscale(10);
-  const leftCurveLeft = -W * 0.9;
-  const rightCurveBottom = -vscale(140);
-  const rightCurveShift = W * 0.35;
+  const curveW = Math.round(W * 1.85);
+  const curveH = Math.round(curveW * 0.42);
+
+  // 모든 라인의 공통 baseline/begin 좌표 (같은 행)
+  const lineBottom = vscale(10);
+  const lineLeft = Math.round((W - curveW) / 1.3); // 중앙 기준
+
+  // 한 쌍 내부 간격(두 라인이 '가깝게'): 기존 35 → 24 전후
+  const pairGapY = vscale(24);
+
+  // 두 쌍 사이 간격(더 넓게): 기존 ~W*0.35 → W*0.45 전후
+  const columnGapX = Math.round(W * 0.45);
 
   const f = (size) => Math.round(mscale(size) / Math.min(fontScale, 1.2));
 
@@ -82,10 +88,10 @@ function useResponsive() {
     BODY_OVERLAP,
     curveW,
     curveH,
-    leftCurveBottom,
-    leftCurveLeft,
-    rightCurveBottom,
-    rightCurveShift,
+    lineBottom,
+    lineLeft,
+    pairGapY,
+    columnGapX,
     f,
   };
 }
@@ -553,13 +559,14 @@ export default function MainScreen() {
         keyboardShouldPersistTaps="handled"
         scrollEnabled={outerScrollEnabled} // ★ 부모 스크롤 on/off
       >
-        {/* 헤더 */}
+        {/* 헤더 */}+{" "}
         <View style={[styles.headerContainer, { paddingBottom: R.HEADER_PB }]}>
+          + {/* 왼쪽 쌍 (가깝게, 같은 행) */}
           <View
             style={{
               position: "absolute",
-              bottom: R.leftCurveBottom,
-              left: R.leftCurveLeft,
+              bottom: R.lineBottom,
+              left: R.lineLeft,
               zIndex: -1,
             }}>
             <Line width={R.curveW} height={R.curveH} />
@@ -567,8 +574,18 @@ export default function MainScreen() {
           <View
             style={{
               position: "absolute",
-              bottom: R.leftCurveBottom + 35,
-              left: R.leftCurveLeft + 0.5,
+              bottom: R.lineBottom + R.pairGapY,
+              left: R.lineLeft + 0.5,
+              zIndex: -1,
+            }}>
+            <Line width={R.curveW} height={R.curveH} />
+          </View>
+          {/* 오른쪽 쌍 (같은 행 + 더 넓은 가로 간격) */}
+          <View
+            style={{
+              position: "absolute",
+              bottom: R.lineBottom,
+              left: R.lineLeft + R.columnGapX,
               zIndex: -1,
             }}>
             <Line width={R.curveW} height={R.curveH} />
@@ -576,32 +593,12 @@ export default function MainScreen() {
           <View
             style={{
               position: "absolute",
-              bottom: R.rightCurveBottom,
-              right: 0,
+              bottom: R.lineBottom + R.pairGapY,
+              left: R.lineLeft + R.columnGapX + 0.5,
               zIndex: -1,
             }}>
-            <Line
-              width={R.curveW}
-              height={R.curveH}
-              style={{ transform: [{ translateX: R.rightCurveShift }] }}
-            />
+            <Line width={R.curveW * 1.005} height={R.curveH} />
           </View>
-          <View
-            style={{
-              position: "absolute",
-              bottom: R.rightCurveBottom,
-              right: 0,
-              zIndex: -1,
-            }}>
-            <Line
-              width={R.curveW * 1.005}
-              height={R.curveH}
-              style={{
-                transform: [{ translateX: R.rightCurveShift - R.W * 0.03 }],
-              }}
-            />
-          </View>
-
           <View style={styles.textContainer}>
             <Text
               style={[
@@ -632,14 +629,12 @@ export default function MainScreen() {
               mountain
             </Text>
           </View>
-
           <View style={styles.rightContainer}>
             <TouchableOpacity style={styles.settingsButton}>
               <Ionicons name="settings-outline" size={R.f(28)} color="black" />
             </TouchableOpacity>
           </View>
         </View>
-
         {/* 사람 이미지 */}
         <Image
           source={require("../assets/images/mainperson.png")}
@@ -659,7 +654,6 @@ export default function MainScreen() {
           }}
           resizeMode="contain"
         />
-
         {/* 바디 */}
         <View
           style={[
