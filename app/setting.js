@@ -1,5 +1,6 @@
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -17,6 +18,8 @@ import BottomNavBar from "./s_navigationbar";
 
 export default function SettingScreen() {
   const router = useRouter();
+  const [nickName, setNickName] = useState("");
+
 
   const [currentPlans, setCurrentPlans] = useState([]);
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
@@ -28,6 +31,16 @@ export default function SettingScreen() {
 
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? "light"];
+
+  const loadNickName = useCallback(async () => {
+      try {
+        const v = await AsyncStorage.getItem("nickName");
+        if (v) setNickName(v);
+      } catch (e) {
+        // noop
+      }
+  }, []);
+
   const loadAllPlans = useCallback(async () => {
       try {
         setIsLoadingPlans(true);
@@ -94,11 +107,11 @@ export default function SettingScreen() {
   }, []);
 
   // 1) 최초 마운트
-  useEffect(() => { loadAllPlans(); }, [loadAllPlans]);
-  // 2) 화면에 포커스될 때마다 새로고침(= 리프레시)
+  useEffect(() => { loadAllPlans(); loadNickName(); }, [loadAllPlans, loadNickName]);  // 2) 화면에 포커스될 때마다 새로고침(= 리프레시)
   useFocusEffect(useCallback(() => {
     loadAllPlans();
-  }, [loadAllPlans]));
+    loadNickName();
+  }, [loadAllPlans, loadNickName]));
 
     const handleCompletePlan = async (planId) => {
     Alert.alert(
@@ -192,7 +205,9 @@ export default function SettingScreen() {
     <View style={styles.wrapper}>
     <ScrollView style={[styles.container, { backgroundColor: "#325A2A" }]}>
       {/* 상단 프로필 섹션 */}
-
+      <Text style={{ color: "white", fontSize: 16, marginBottom: 12 }}>
+        안녕하세요, {nickName || "하이커"}님
+      </Text>
       {/* 중간 계획 섹션 */}
       <View style={[styles.planSection, { backgroundColor: themeColors.card }]}>
         <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
