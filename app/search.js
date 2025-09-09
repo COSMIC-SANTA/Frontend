@@ -1,3 +1,4 @@
+import { baseMountainName } from "@/utils/mountain";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -81,9 +82,30 @@ const SearchScreen = () => {
 
     // 검색 결과 아이템 클릭
     const handleResultItemPress = (mountain) => {
-        console.log("선택된 산:", mountain);
-        // 여기서 상세 페이지로 이동하거나 다른 액션 수행
-        Alert.alert("산 선택", `${mountain.mountainName}을(를) 선택했습니다.`);
+            console.log("선택된 산:", mountain);
+            // 여기서 상세 페이지로 이동하거나 다른 액션 수행
+            Alert.alert("산 선택", `${mountain.mountainName}을(를) 선택하시겠습니까?`,
+            [
+                { text: "취소", style: "cancel" },
+                {
+                    text: "완료",
+                    onPress: async () => {
+                    const location = mountain?.mountainAddress;
+                    const mountainName = baseMountainName(mountain?.mountainName);
+                        try {
+                            console.log(`산 주소 정보 전달: ${mountain.mountainAddress}`);
+                            if (location) {
+                                router.push(`/mountain-tourism?mountainName=${encodeURIComponent(mountainName)}&location=${encodeURIComponent(location)}&pageNo=1`);
+                            }
+                        } catch (error) {
+                            console.error("산 계획 페이지 전달 처리 오류:", error);
+                            Alert.alert("오류", "산 주소를 전달하는 중 문제가 발생했습니다.");
+                        }
+                    }
+                }
+            ],
+            { cancelable: true }
+        );
     };
 
     // 검색 기록 삭제
