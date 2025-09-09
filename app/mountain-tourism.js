@@ -42,6 +42,7 @@ const NORMALIZE_RULES = [
   [/^경북(?=\s|$)/, "경상북도"],
   [/^경남(?=\s|$)/, "경상남도"],
   [/^전북(?=\s|$)/, "전북특별자치도"],
+  [/^전라북도(?=\s|$)/, "전북특별자치도"],
   [/^전남(?=\s|$)/, "전라남도"],
   [/^제주특별자치도(?=\s|$)/, "제주도"],
 ];
@@ -413,8 +414,7 @@ export default function MountainTourismScreen() {
   };
 
   return (
-    <View
-      style={[styles.container, { backgroundColor: themeColors.background }]}>
+    <View style={[styles.container]}>
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4CAF50" />
@@ -473,6 +473,7 @@ export default function MountainTourismScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#FFF9E5",
   },
   loadingContainer: {
     flex: 1,
@@ -684,13 +685,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "white",
+    backgroundColor: "#fbe8aeff",
     padding: 15,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
   },
