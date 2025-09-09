@@ -366,11 +366,14 @@ export const loginService = {
       skipAuth: true,
     });
 
-    const token = data?.accessToken ?? data?.token ?? null;
+    const token = data?.accessToken ?? null;
+    const nickname = data?.nickname ?? null;
     if (token) {
       await AsyncStorage.setItem('authToken', token);
+      await AsyncStorage.setItem('nickName', nickname);
+
       cookieHelpers.setCookie('accessToken', token);
-      return { success: true, accessToken: token, message: data?.message ?? null };
+      return { success: true, accessToken: token, message: `Hello, ${nickname}!` ?? null };
     }
     return { success: false, accessToken: null, message: '토큰이 응답에 없습니다.' };
   },

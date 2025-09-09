@@ -22,14 +22,36 @@ const CATEGORIES = [
   { key: 'stayDTO', label: '숙박', icon: '🏨', color: '#9C27B0' },
 ];
 
- const METRO_MAP = {
-   "서울특별시": "서울",
-   "부산광역시": "부산",
-   "대구광역시": "대구",
-   "인천광역시": "인천",
-   "광주광역시": "광주",
-   "대전광역시": "대전",
-   "울산광역시": "울산",
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// 순서 중요: 1) 광역시/특별시 축약 → 2) 도/특자도 확장
+const NORMALIZE_RULES = [
+  // 1) 광역시/특별시 접두사 축약
+  [/^서울특별시\s*/, "서울 "],
+  [/^부산광역시\s*/, "부산 "],
+  [/^대구광역시\s*/, "대구 "],
+  [/^인천광역시\s*/, "인천 "],
+  [/^광주광역시\s*/, "광주 "],
+  [/^대전광역시\s*/, "대전 "],
+  [/^울산광역시\s*/, "울산 "],
+  [/^세종(?=\s|$)/, "세종특별자치시"],
+  [/^경기도(?=\s|$)/, "경기도"],
+  [/^강원도(?=\s|$)/, "강원특별자치도"],
+  [/^충북(?=\s|$)/, "충청북도"],
+  [/^충남(?=\s|$)/, "충청남도"],
+  [/^경북(?=\s|$)/, "경상북도"],
+  [/^경남(?=\s|$)/, "경상남도"],
+  [/^전북(?=\s|$)/, "전북특별자치도"],
+  [/^전남(?=\s|$)/, "전라남도"],
+  [/^제주도(?=\s|$)/, "제주도"],
+];
+
+ const normalizeLocation = (loc) => {
+   let s = String(loc || "").trim();
+   for (const [originalLoc, replaceLoc] of NORMALIZE_RULES) {
+     if (originalLoc.test(s)) { s = s.replace(originalLoc, replaceLoc); break; }
+   }
+   return s.replace(/\s+/g, " ").trim(); // 공백 정리
  };
 
 export default function MountainTourismScreen() {
@@ -65,23 +87,13 @@ export default function MountainTourismScreen() {
     }
   }, [selectedCategory, tourismData]);
 
- const normalizeMetroCityInLocation = (loc) => {
-   let s = String(loc || "").trim();
-   for (const [from, to] of Object.entries(METRO_MAP)) {
-     const re = new RegExp("^" + from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*");
-     if (re.test(s)) {
-       s = s.replace(re, `${to} `).replace(/\s+/g, " ").trim();
-       break;
-     }
-   }
-   return s;
- };
+ 
 
   const loadInitialData = async () => {
     try {
       setLoading(true);
       
-      const parsedLocation = normalizeMetroCityInLocation(location);
+      const parsedLocation = normalizeLocation(location);
       console.log(`관광 정보 요청: location=${parsedLocation}, pageNo=1`);
       const result = await tourismService.getTouristSpots(parsedLocation, 1);
       
@@ -145,7 +157,7 @@ export default function MountainTourismScreen() {
       pathname: '/mountain-direction',
       params: {
         travelPlan: JSON.stringify(selectedPlaces),
-        location: location,
+        location: normalizeLocation(location),
         mountainName: mountainName
       }
     });
