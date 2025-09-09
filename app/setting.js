@@ -1,7 +1,8 @@
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
+import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -32,16 +33,14 @@ export default function SettingScreen() {
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
 
   const [completedMountains, setCompletedMountains] = useState([]);
-  const [isLoadingCompleted, setIsLoadingCompleted] = useState([]);
+  const [isLoadingCompleted, setIsLoadingCompleted] = useState([true]);
 
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editingUserInfo, setEditingUserInfo] = useState(userInfo);
 
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? "light"];
-
-    useEffect(() => {
-    const loadAllPlans = async () => {
+  const loadAllPlans = useCallback(async () => {
       try {
         setIsLoadingPlans(true);
         setIsLoadingCompleted(true);
@@ -104,10 +103,14 @@ export default function SettingScreen() {
         setIsLoadingPlans(false);
         setIsLoadingCompleted(false);
       }
-    };
-
-    loadAllPlans();
   }, []);
+
+  // 1) 최초 마운트
+  useEffect(() => { loadAllPlans(); }, [loadAllPlans]);
+  // 2) 화면에 포커스될 때마다 새로고침(= 리프레시)
+  useFocusEffect(useCallback(() => {
+    loadAllPlans();
+  }, [loadAllPlans]));
 
     const handleCompletePlan = async (planId) => {
     Alert.alert(

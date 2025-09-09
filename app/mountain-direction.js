@@ -126,9 +126,7 @@ const handleSavePlan = async () => {
     // }
 
 
-    const result = await planService.savePlan(finalTravelPlan);
-
-    const planId = result?.planId ?? null;
+   const result = await planService.savePlan(finalTravelPlan);
 
     setModalVisible(false); // 모달 닫기
 
@@ -136,11 +134,6 @@ const handleSavePlan = async () => {
     if (result?.success) {
       router.replace({
         pathname: "/setting",
-        params: {
-          planId: planId ? String(planId) : "",
-          targetDate: selectedDate,
-          dest: selectedDestination?.name ?? "",
-        },
       });
     } else {
       Alert.alert("오류", "여행 계획 저장에 실패");
@@ -265,7 +258,6 @@ const handleSavePlan = async () => {
               // 콘솔 로그에서도 optimalRouteData.data를 직접 사용
               console.log("선택된 경로 데이터:", optimalRouteData.data);
               
-              handleStartNavigation();
               handleStartButtonPress();
             }}
           >
@@ -444,23 +436,58 @@ const handleSavePlan = async () => {
   };
 
   // 산 좌표 조회(MountainSearchResponse: { mountains: [{ mountainName, mountainAddress, position:{mapX,mapY}}] })
-  const getMountainPosition = async (name) => {
-    try {
-      const { mountains = [] } = await mountainService.fetchMountainXY(name);
-      const first = mountains[0];
-      console.log("산 x:"+first.position?.mapX)
-      console.log("산 y:"+first.position?.mapY)
-      if (!first?.position?.mapX || !first?.position?.mapY) return null;
-      return {
-        name: first.mountainName,
-        location: first.mountainAddress,
-        position: first.position, // { mapX, mapY }
-      };
-    } catch (e) {
-      console.error("getMountainPosition 에러:", e);
+const getMountainPosition = async (name) => {
+  try {
+    const res = await mountainService.fetchMountainXY(name);
+    const mountains = Array.isArray(res?.mountains) ? res.mountains : [];
+    if (mountains.length === 0) return null;
+
+    let exact = mountains.find(m => m?.mountainName === name);
+
+    // (옵션) 정확 일치가 없을 때, 정상화 후 일치 시도
+    // const normalize = (s) => {
+    //   if (!s) return "";
+    //   const trimmed = String(s).trim();
+    //   // 괄호 내용 제거 + '산'까지만 자르기 (덕유산(향적봉) → 덕유산)
+    //   const noBracket = trimmed.replace(/\s*[\(\[\{].*?[\)\]\}]\s*/g, "");
+    //   const match = noBracket.match(/.+?산/);
+    //   return match ? match[0] : noBracket;
+    // };
+    // if (!exact) {
+    //   const target = normalize(name);
+    //   exact = mountains.find(m => normalize(m?.mountainName) === target);
+    // }
+
+    if (!exact) {
+      console.warn(
+        `[getMountainPosition] 정확히 일치하는 산을 찾지 못했습니다: "${name}". 후보: ${mountains
+          .map(m => m?.mountainName)
+          .filter(Boolean)
+          .join(", ")}`
+      );
+      return null; // 정확 일치 없으면 null을 돌려 문제를 드러냄
+      // (옵션) 그래도 첫 번째로 대체하려면 아래 주석 해제
+      // exact = mountains[0];
+    }
+
+    // 좌표 추출 (position 또는 mapX/mapY 단독 필드 대응)
+    const mapX = Number(exact?.position?.mapX ?? exact?.mapX);
+    const mapY = Number(exact?.position?.mapY ?? exact?.mapY);
+    if (!Number.isFinite(mapX) || !Number.isFinite(mapY)) {
+      console.warn("[getMountainPosition] 좌표 없음/비정상:", exact);
       return null;
     }
-  };
+
+    return {
+      name: exact.mountainName,
+      location: exact.mountainAddress,
+      position: { mapX, mapY },
+    };
+  } catch (e) {
+    console.error("getMountainPosition 에러:", e);
+    return null;
+  }
+};
 
   // 목적지 좌표가 없을 때(산 선택 등) 좌표 주입
   const ensureDestinationHasCoords = async (dest) => {
@@ -869,10 +896,6 @@ const generateRouteSteps = () => {
   );
 }
 
-const handleStartNavigation = () => {
-  Alert.alert("경로 선택", "경로가 선택되었습니다.");
-};
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContainer: { flex: 1 },
@@ -1069,7 +1092,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContainer: {
-    width: width * 0.5,
+    width: width * 0.9,
     padding: 30,
     borderRadius: 20,
     alignItems: 'center',
