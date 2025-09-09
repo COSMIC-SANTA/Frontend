@@ -559,9 +559,9 @@ export default function MainScreen() {
         keyboardShouldPersistTaps="handled"
         scrollEnabled={outerScrollEnabled} // ★ 부모 스크롤 on/off
       >
-        {/* 헤더 */}+{" "}
+        {/* 헤더 */}
         <View style={[styles.headerContainer, { paddingBottom: R.HEADER_PB }]}>
-          + {/* 왼쪽 쌍 (가깝게, 같은 행) */}
+          {/* 왼쪽 쌍 (가깝게, 같은 행) */}
           <View
             style={{
               position: "absolute",
