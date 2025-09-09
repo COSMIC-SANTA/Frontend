@@ -1,6 +1,6 @@
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -11,7 +11,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { planService } from "../services/api.js";
 import BottomNavBar from "./s_navigationbar";
@@ -19,7 +19,6 @@ import BottomNavBar from "./s_navigationbar";
 export default function SettingScreen() {
   const router = useRouter();
   const [nickName, setNickName] = useState("");
-
 
   const [currentPlans, setCurrentPlans] = useState([]);
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
@@ -33,132 +32,143 @@ export default function SettingScreen() {
   const themeColors = Colors[colorScheme ?? "light"];
 
   const loadNickName = useCallback(async () => {
-      try {
-        const v = await AsyncStorage.getItem("nickName");
-        if (v) setNickName(v);
-      } catch (e) {
-        // noop
-      }
+    try {
+      const v = await AsyncStorage.getItem("nickName");
+      if (v) setNickName(v);
+    } catch (e) {
+      // noop
+    }
   }, []);
 
   const loadAllPlans = useCallback(async () => {
-      try {
-        setIsLoadingPlans(true);
-        setIsLoadingCompleted(true);
-        
-        // 현재 계획 로드
-        const loadUserPlans = async () => {
-          try {
-            console.log("계획 불러오기 시작...");
-            const response = await planService.loadPlan();
-            console.log("계획 불러오기 응답:", response);
+    try {
+      setIsLoadingPlans(true);
+      setIsLoadingCompleted(true);
 
-            if (response?.data) {
-              if (Array.isArray(response.data)) {
-                setCurrentPlans(response.data);
-              } else {
-                setCurrentPlans([response.data]);
-              }
+      // 현재 계획 로드
+      const loadUserPlans = async () => {
+        try {
+          console.log("계획 불러오기 시작...");
+          const response = await planService.loadPlan();
+          console.log("계획 불러오기 응답:", response);
+
+          if (response?.data) {
+            if (Array.isArray(response.data)) {
+              setCurrentPlans(response.data);
             } else {
-              setCurrentPlans([]);
+              setCurrentPlans([response.data]);
             }
-          } catch (error) {
-            console.error("계획 불러오기 실패:", error);
+          } else {
             setCurrentPlans([]);
-            Alert.alert("알림", "등산 계획을 불러오는데 실패했습니다.");
-          } finally {
-            setIsLoadingPlans(false);
           }
-        };
+        } catch (error) {
+          console.error("계획 불러오기 실패:", error);
+          setCurrentPlans([]);
+          Alert.alert("알림", "등산 계획을 불러오는데 실패했습니다.");
+        } finally {
+          setIsLoadingPlans(false);
+        }
+      };
 
-        // ✅ 완료된 계획 로드 함수 추가
-        const loadCompletedPlans = async () => {
-          try {
-            console.log("완료된 계획 불러오기 시작...");
-            const response = await planService.loadCompletedPlan();
-            console.log("완료된 계획 불러오기 응답:", response);
+      // ✅ 완료된 계획 로드 함수 추가
+      const loadCompletedPlans = async () => {
+        try {
+          console.log("완료된 계획 불러오기 시작...");
+          const response = await planService.loadCompletedPlan();
+          console.log("완료된 계획 불러오기 응답:", response);
 
-            if (response?.data) {
-              if (Array.isArray(response.data)) {
-                setCompletedMountains(response.data);
-              } else {
-                setCompletedMountains([response.data]);
-              }
+          if (response?.data) {
+            if (Array.isArray(response.data)) {
+              setCompletedMountains(response.data);
             } else {
-              setCompletedMountains([]);
+              setCompletedMountains([response.data]);
             }
-          } catch (error) {
-            console.error("완료된 계획 불러오기 실패:", error);
+          } else {
             setCompletedMountains([]);
-            // 완료된 계획은 선택사항이므로 에러 알림은 표시하지 않음
-          } finally {
-            setIsLoadingCompleted(false);
           }
-        };
+        } catch (error) {
+          console.error("완료된 계획 불러오기 실패:", error);
+          setCompletedMountains([]);
+          // 완료된 계획은 선택사항이므로 에러 알림은 표시하지 않음
+        } finally {
+          setIsLoadingCompleted(false);
+        }
+      };
 
-        // 두 함수를 병렬로 실행
-        await Promise.all([loadUserPlans(), loadCompletedPlans()]);
-
-      } catch (error) {
-        console.error("전체 계획 로드 실패:", error);
-        setIsLoadingPlans(false);
-        setIsLoadingCompleted(false);
-      }
+      // 두 함수를 병렬로 실행
+      await Promise.all([loadUserPlans(), loadCompletedPlans()]);
+    } catch (error) {
+      console.error("전체 계획 로드 실패:", error);
+      setIsLoadingPlans(false);
+      setIsLoadingCompleted(false);
+    }
   }, []);
 
   // 1) 최초 마운트
-  useEffect(() => { loadAllPlans(); loadNickName(); }, [loadAllPlans, loadNickName]);  // 2) 화면에 포커스될 때마다 새로고침(= 리프레시)
-  useFocusEffect(useCallback(() => {
+  useEffect(() => {
     loadAllPlans();
     loadNickName();
-  }, [loadAllPlans, loadNickName]));
+  }, [loadAllPlans, loadNickName]); // 2) 화면에 포커스될 때마다 새로고침(= 리프레시)
+  useFocusEffect(
+    useCallback(() => {
+      loadAllPlans();
+      loadNickName();
+    }, [loadAllPlans, loadNickName])
+  );
 
-    const handleCompletePlan = async (planId) => {
-    Alert.alert(
-      "계획 완료",
-      "이 등산 계획을 완료 처리하시겠습니까?",
-      [
-        { text: "취소", style: "cancel" },
-        {
-          text: "완료",
-          onPress: async () => {
-            try {
-              console.log(`계획 완료 처리 시작: ${planId}`);
-              
-              const result = await planService.completePlan(planId);
-              
-              if (result.success) {
-                Alert.alert("성공", "계획이 완료되었습니다!");
-                
-                // 완료 후 목록 새로고침
-                const [currentResponse, completedResponse] = await Promise.all([
-                  planService.loadPlan(),
-                  planService.loadCompletedPlan()
-                ]);
-                
-                // 현재 계획 업데이트
-                if (currentResponse?.data) {
-                  setCurrentPlans(Array.isArray(currentResponse.data) ? currentResponse.data : [currentResponse.data]);
-                }
-                
-                // 완료된 계획 업데이트
-                if (completedResponse?.data) {
-                  setCompletedMountains(Array.isArray(completedResponse.data) ? completedResponse.data : [completedResponse.data]);
-                }
-              } else {
-                Alert.alert("오류", result.error || "계획 완료 처리에 실패했습니다.");
+  const handleCompletePlan = async (planId) => {
+    Alert.alert("계획 완료", "이 등산 계획을 완료 처리하시겠습니까?", [
+      { text: "취소", style: "cancel" },
+      {
+        text: "완료",
+        onPress: async () => {
+          try {
+            console.log(`계획 완료 처리 시작: ${planId}`);
+
+            const result = await planService.completePlan(planId);
+
+            if (result.success) {
+              Alert.alert("성공", "계획이 완료되었습니다!");
+
+              // 완료 후 목록 새로고침
+              const [currentResponse, completedResponse] = await Promise.all([
+                planService.loadPlan(),
+                planService.loadCompletedPlan(),
+              ]);
+
+              // 현재 계획 업데이트
+              if (currentResponse?.data) {
+                setCurrentPlans(
+                  Array.isArray(currentResponse.data)
+                    ? currentResponse.data
+                    : [currentResponse.data]
+                );
               }
-            } catch (error) {
-              console.error("계획 완료 처리 오류:", error);
-              Alert.alert("오류", "계획 완료 처리 중 문제가 발생했습니다.");
+
+              // 완료된 계획 업데이트
+              if (completedResponse?.data) {
+                setCompletedMountains(
+                  Array.isArray(completedResponse.data)
+                    ? completedResponse.data
+                    : [completedResponse.data]
+                );
+              }
+            } else {
+              Alert.alert(
+                "오류",
+                result.error || "계획 완료 처리에 실패했습니다."
+              );
             }
+          } catch (error) {
+            console.error("계획 완료 처리 오류:", error);
+            Alert.alert("오류", "계획 완료 처리 중 문제가 발생했습니다.");
           }
-        }
-      ]
-    );
+        },
+      },
+    ]);
   };
 
-    const handleNavigation = (screen) => {
+  const handleNavigation = (screen) => {
     router.push(`/${screen}`);
   };
 
@@ -187,135 +197,159 @@ export default function SettingScreen() {
         {
           backgroundColor: status === "완료" ? "#4CAF50" : "#FF9800",
         },
-      ]}
-    >
+      ]}>
       <Text style={styles.statusText}>{status}</Text>
     </View>
   );
 
   const LevelBadge = ({ level }) => (
     <View
-      style={[styles.levelBadge, { backgroundColor: getLevelColor(level) }]}
-    >
+      style={[styles.levelBadge, { backgroundColor: getLevelColor(level) }]}>
       <Text style={styles.levelText}>{level}</Text>
     </View>
   );
 
   return (
     <View style={styles.wrapper}>
-    <ScrollView style={[styles.container, { backgroundColor: "#325A2A" }]}>
-      {/* 상단 프로필 섹션 */}
-      <Text style={{ color: "white", fontSize: 16, marginBottom: 12 }}>
-        안녕하세요, {nickName || "하이커"}님
-      </Text>
-      {/* 중간 계획 섹션 */}
-      <View style={[styles.planSection, { backgroundColor: themeColors.card }]}>
-        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-          등산 계획
-        </Text>
-        
-        {isLoadingPlans ? (<View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={themeColors.tint || "#007AFF"} />
-          <Text style={[styles.loadingText, {color: themeColors.text}]}>
-            계획을 불러오는 중...
+      <ScrollView style={[styles.container, { backgroundColor: "#325A2A" }]}>
+        {/* 상단 프로필 섹션 */}
+        <View style={styles.greetingCard}>
+          <Text style={styles.greetingHello}>안녕하세요,</Text>
+          <Text style={styles.greetingName}>{nickName || "하이커"}님</Text>
+          <Text style={styles.greetingSub}>오늘도 안전한 산행 되세요 ⛰️</Text>
+        </View>
+        {/* 중간 계획 섹션 */}
+        <View
+          style={[styles.planSection, { backgroundColor: themeColors.card }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+            등산 계획
           </Text>
-        </View>) : (
-        <>
-        {currentPlans.length > 0 ? (
-          currentPlans.map((plan, index) => (
-            <View
-              key={plan?.planId}
-              style={[
-                styles.planCard,
-                { backgroundColor: themeColors.background },
-              ]}
-            >
-              <View style={styles.planInfo}>
-                <Text style={[styles.planName, { color: themeColors.text }]}>
-                  {plan?.mountainDTO?.name}
-                </Text>
-                <Text
-                  style={[styles.planDate, { color: themeColors.text + "80" }]}
-                >
-                  계획일: {plan?.targetDate}
-                </Text>
-                <View style={styles.completeButton}>
-                <TouchableOpacity
-                onPress={()=>handleCompletePlan(plan?.planId)}
-                >
-                  <Text style={styles.completeButtonText}>완료</Text>
-                </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          ))
-        ) : (
-          <Text style={[styles.emptyText, { color: themeColors.text + "60" }]}>
-            현재 계획된 등산이 없습니다.
-          </Text>
-        )}
-        </>
-        )}
-      </View>
 
-      {/* 하단 완료 섹션 */}
-      <View
-        style={[styles.completedSection, { backgroundColor: themeColors.card }]}
-      >
-        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-          등산 완료 기록
-        </Text>
-
-        {isLoadingCompleted ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={themeColors.tint || "#007AFF"} />
-            <Text style={[styles.loadingText, { color: themeColors.text }]}>
-              완료 기록을 불러오는 중...
-            </Text>
-          </View>
-        ) : (
-          <>
-            {completedMountains.length > 0 ? (
-              completedMountains.map((mountain, index) => (
-                <View
-                  key={mountain?.planId || `completed-${index}`}
-                  style={[
-                    styles.completedCard,
-                    { backgroundColor: themeColors.background },
-                  ]}
-                >
-                  <View style={styles.completedInfo}>
-                    <Text style={[styles.completedName, { color: themeColors.text }]}>
-                      {mountain?.mountainDTO?.name || "산 이름 미정"}
-                    </Text>
-                    <StatusBadge status="완료" />
-                  </View>
-                  <Text
-                    style={[styles.completedDate, { color: themeColors.text + "80" }]}
-                  >
-                    계획일: {mountain?.targetDate || "미정"}
-                  </Text>
-                </View>
-              ))
-            ) : (
-              <Text style={[styles.emptyText, { color: themeColors.text + "60" }]}>
-                완료된 등산 기록이 없습니다.
+          {isLoadingPlans ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator
+                size="large"
+                color={themeColors.tint || "#007AFF"}
+              />
+              <Text style={[styles.loadingText, { color: themeColors.text }]}>
+                계획을 불러오는 중...
               </Text>
-            )}
-          </>
-        )}
-      </View>
+            </View>
+          ) : (
+            <>
+              {currentPlans.length > 0 ? (
+                currentPlans.map((plan, index) => (
+                  <View
+                    key={plan?.planId}
+                    style={[
+                      styles.planCard,
+                      { backgroundColor: themeColors.background },
+                    ]}>
+                    <View style={styles.planInfo}>
+                      <Text
+                        style={[styles.planName, { color: themeColors.text }]}>
+                        {plan?.mountainDTO?.name}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.planDate,
+                          { color: themeColors.text + "80" },
+                        ]}>
+                        계획일: {plan?.targetDate}
+                      </Text>
+                      <View style={styles.completeButton}>
+                        <TouchableOpacity
+                          onPress={() => handleCompletePlan(plan?.planId)}>
+                          <Text style={styles.completeButtonText}>완료</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <Text
+                  style={[
+                    styles.emptyText,
+                    { color: themeColors.text + "60" },
+                  ]}>
+                  현재 계획된 등산이 없습니다.
+                </Text>
+              )}
+            </>
+          )}
+        </View>
 
+        {/* 하단 완료 섹션 */}
+        <View
+          style={[
+            styles.completedSection,
+            { backgroundColor: themeColors.card },
+          ]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+            등산 완료 기록
+          </Text>
 
-      {/* 프로필 수정 모달 */}  
-    </ScrollView>
-    <BottomNavBar onNavigate={handleNavigation} />
+          {isLoadingCompleted ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator
+                size="small"
+                color={themeColors.tint || "#007AFF"}
+              />
+              <Text style={[styles.loadingText, { color: themeColors.text }]}>
+                완료 기록을 불러오는 중...
+              </Text>
+            </View>
+          ) : (
+            <>
+              {completedMountains.length > 0 ? (
+                completedMountains.map((mountain, index) => (
+                  <View
+                    key={mountain?.planId || `completed-${index}`}
+                    style={[
+                      styles.completedCard,
+                      { backgroundColor: themeColors.background },
+                    ]}>
+                    <View style={styles.completedInfo}>
+                      <Text
+                        style={[
+                          styles.completedName,
+                          { color: themeColors.text },
+                        ]}>
+                        {mountain?.mountainDTO?.name || "산 이름 미정"}
+                      </Text>
+                      <StatusBadge status="완료" />
+                    </View>
+                    <Text
+                      style={[
+                        styles.completedDate,
+                        { color: themeColors.text + "80" },
+                      ]}>
+                      계획일: {mountain?.targetDate || "미정"}
+                    </Text>
+                  </View>
+                ))
+              ) : (
+                <Text
+                  style={[
+                    styles.emptyText,
+                    { color: themeColors.text + "60" },
+                  ]}>
+                  완료된 등산 기록이 없습니다.
+                </Text>
+              )}
+            </>
+          )}
+        </View>
+
+        {/* 프로필 수정 모달 */}
+      </ScrollView>
+      <BottomNavBar onNavigate={handleNavigation} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-    wrapper: {
+  wrapper: {
     flex: 1,
   },
   container: {
@@ -551,9 +585,9 @@ const styles = StyleSheet.create({
   },
 
   // 여행 계획 완료 버튼 스타일
-    loadingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  loadingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 20,
   },
   loadingText: {
@@ -561,16 +595,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   completeButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: "#4CAF50",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
     marginTop: 8,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   completeButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
+  },
+
+  //프로필
+  greetingCard: {
+    marginTop: 70,
+    marginBottom: 16,
+    marginHorizontal: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    backgroundColor: "rgba(255,255,255,0.08)", // 초록 배경 위에 은은한 카드
+    borderColor: "rgba(255,255,255,0.18)",
+    borderWidth: 1,
+    borderRadius: 16,
+    // 살짝 입체감
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  greetingHello: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 16,
+    marginBottom: 2,
+  },
+  greetingName: {
+    color: "#fff",
+    fontSize: 28,
+    fontWeight: "800",
+    lineHeight: 34,
+  },
+  greetingSub: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 14,
+    marginTop: 6,
   },
 });
