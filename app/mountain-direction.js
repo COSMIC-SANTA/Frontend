@@ -12,13 +12,13 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
-import { Calendar } from 'react-native-calendars';
+import { Calendar } from "react-native-calendars";
 import { WebView } from "react-native-webview";
 import { mountainService, planService } from "../services/api.js";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 export default function MountainDirectionScreen() {
   const router = useRouter();
@@ -32,7 +32,6 @@ export default function MountainDirectionScreen() {
   const [optimalRouteData, setOptimalRouteData] = useState(null);
   const [selectedDestination, setSelectedDestination] = useState(null); // { name, location, mapX?, mapY?, ... }
 
-
   const [mapRegion, setMapRegion] = useState(null);
   const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [mapRef, setMapRef] = useState(null);
@@ -40,14 +39,14 @@ export default function MountainDirectionScreen() {
   // 최종 경로 데이터를 저장할 state 추가
   const [finalRouteData, setFinalRouteData] = useState(null);
 
-    // 모달 상태 추가
+  // 모달 상태 추가
   const [modalVisible, setModalVisible] = useState(false);
 
-    // 선택된 날짜를 저장할 state 추가
+  // 선택된 날짜를 저장할 state 추가
   const [selectedDate, setSelectedDate] = useState(null);
   const [isDateConfirmed, setIsDateConfirmed] = useState(false);
 
-    // 시작 버튼 클릭 시 모달 띄우기
+  // 시작 버튼 클릭 시 모달 띄우기
   const handleStartButtonPress = () => {
     setModalVisible(true);
   };
@@ -73,7 +72,7 @@ export default function MountainDirectionScreen() {
 
   useEffect(() => {
     (async () => {
-      console.log(mountainName)
+      console.log(mountainName);
       const name = (mountainName ?? "").toString().trim();
       if (!name) {
         console.warn("[mountain XY] mountainName 없음");
@@ -82,7 +81,7 @@ export default function MountainDirectionScreen() {
       const m = await getMountainPosition(name);
       if (m?.position?.mapX != null && m?.position?.mapY != null) {
         console.log(
-            `[mountain XY] ${m.name} -> x(경도): ${m.position.mapX}, y(위도): ${m.position.mapY}`
+          `[mountain XY] ${m.name} -> x(경도): ${m.position.mapX}, y(위도): ${m.position.mapY}`
         );
       } else {
         console.warn("[mountain XY] 좌표를 찾지 못했습니다.", m);
@@ -92,60 +91,58 @@ export default function MountainDirectionScreen() {
   }, []);
 
   // handleSavePlan 함수를 컴포넌트 내부로 이동하고 완성
-const handleSavePlan = async () => {
-  try {
-    // handleDecideRoute에서 경로 데이터 가져오기
-    const routeData = await handleDecideRoute();
-    
-    if (!routeData) {
-      Alert.alert("오류", "경로 데이터를 생성할 수 없습니다.");
-      return;
+  const handleSavePlan = async () => {
+    try {
+      // handleDecideRoute에서 경로 데이터 가져오기
+      const routeData = await handleDecideRoute();
+
+      if (!routeData) {
+        Alert.alert("오류", "경로 데이터를 생성할 수 없습니다.");
+        return;
+      }
+
+      if (!selectedDate) {
+        Alert.alert("알림", "날짜를 먼저 선택해 주세요.");
+        return;
+      }
+
+      // 선택된 날짜와 함께 최종 여행 계획 데이터 생성
+      const finalTravelPlan = {
+        ...routeData,
+        targetDate: `${selectedDate}T00:00:00`, // selectedDate를 targetDate로 추가
+        //
+      };
+
+      // 콘솔에 최종 데이터 출력
+      console.log("=== 최종 여행 계획 저장 데이터 ===");
+      console.log("targetDate:", finalTravelPlan.targetDate);
+      console.log("전체 데이터:", JSON.stringify(finalTravelPlan, null, 2));
+
+      // 여기서 실제 저장 로직 구현 (예: planService.savePlan 호출)
+      // const result = await planService.savePlan(finalTravelPlan);
+      // if (result.success) {
+      //   Alert.alert("성공", "여행 계획이 저장되었습니다!");
+      // }
+
+      const result = await planService.savePlan(finalTravelPlan);
+
+      setModalVisible(false); // 모달 닫기
+
+      // 저장 성공 시 설정 페이지 이동
+      if (result?.success) {
+        router.replace({
+          pathname: "/setting",
+        });
+      } else {
+        Alert.alert("오류", "여행 계획 저장에 실패");
+      }
+    } catch (error) {
+      console.error("여행 계획 저장 중 오류:", error);
+      Alert.alert("오류", "여행 계획 저장 중 문제가 발생했습니다.");
     }
+  };
 
-    if(!selectedDate) {
-      Alert.alert("알림", "날짜를 먼저 선택해 주세요.");
-      return;
-    }
-
-    // 선택된 날짜와 함께 최종 여행 계획 데이터 생성
-    const finalTravelPlan = {
-      ...routeData,
-      targetDate: `${selectedDate}T00:00:00`, // selectedDate를 targetDate로 추가
-      // 
-    };
-
-    // 콘솔에 최종 데이터 출력
-    console.log("=== 최종 여행 계획 저장 데이터 ===");
-    console.log("targetDate:", finalTravelPlan.targetDate);
-    console.log("전체 데이터:", JSON.stringify(finalTravelPlan, null, 2));
-
-    // 여기서 실제 저장 로직 구현 (예: planService.savePlan 호출)
-    // const result = await planService.savePlan(finalTravelPlan);
-    // if (result.success) {
-    //   Alert.alert("성공", "여행 계획이 저장되었습니다!");
-    // }
-
-
-   const result = await planService.savePlan(finalTravelPlan);
-
-    setModalVisible(false); // 모달 닫기
-
-    // 저장 성공 시 설정 페이지 이동
-    if (result?.success) {
-      router.replace({
-        pathname: "/setting",
-      });
-    } else {
-      Alert.alert("오류", "여행 계획 저장에 실패");
-    }
-
-  } catch (error) {
-    console.error("여행 계획 저장 중 오류:", error);
-    Alert.alert("오류", "여행 계획 저장 중 문제가 발생했습니다.");
-  }
-};
-
-    // 경로 정보를 렌더링하는 함수
+  // 경로 정보를 렌더링하는 함수
   const renderRouteTimeline = () => {
     if (!optimalRouteData) {
       return (
@@ -158,10 +155,10 @@ const handleSavePlan = async () => {
     }
 
     const routeSteps = generateRouteSteps();
-    const totalDistance = optimalRouteData.data?.distance 
-      ? Math.round(optimalRouteData.data.distance / 1000) 
+    const totalDistance = optimalRouteData.data?.distance
+      ? Math.round(optimalRouteData.data.distance / 1000)
       : routeSteps.reduce((sum, step) => sum + step.distance, 0);
-    
+
     const estimatedTime = optimalRouteData.data?.duration
       ? Math.round(optimalRouteData.data.duration / 60)
       : Math.round(totalDistance * 2); // 대략적인 계산 (시속 30km 기준)
@@ -169,14 +166,19 @@ const handleSavePlan = async () => {
     return (
       <View style={styles.routeTimelineContainer}>
         {/* 경로 요약 정보 */}
-        <View style={[styles.routeSummary, { backgroundColor: themeColors.card }]}>
+        <View
+          style={[styles.routeSummary, { backgroundColor: themeColors.card }]}>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>총 거리</Text>
-            <Text style={[styles.summaryValue, { color: "#4CAF50" }]}>{totalDistance}km</Text>
+            <Text style={[styles.summaryValue, { color: "#4CAF50" }]}>
+              {totalDistance}km
+            </Text>
           </View>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>예상 시간</Text>
-            <Text style={[styles.summaryValue, { color: "#FF9800" }]}>{estimatedTime}분</Text>
+            <Text style={[styles.summaryValue, { color: "#FF9800" }]}>
+              {estimatedTime}분
+            </Text>
           </View>
           {optimalRouteData.data?.taxi && (
             <View style={styles.summaryItem}>
@@ -192,38 +194,55 @@ const handleSavePlan = async () => {
         <View style={styles.timelineContainer}>
           {routeSteps.map((step, index) => {
             const isLast = index === routeSteps.length - 1;
-            
+
             return (
               <View key={step.id} style={styles.timelineItem}>
                 {/* 타임라인 라인과 점 */}
                 <View style={styles.timelineLineContainer}>
-                  <View style={[
-                    styles.timelineDot, 
-                    {
-                      backgroundColor: step.isStart ? "#4CAF50" : 
-                                     step.isDestination ? "#F44336" : 
-                                     "#FF9800"
-                    }
-                  ]}>
+                  <View
+                    style={[
+                      styles.timelineDot,
+                      {
+                        backgroundColor: step.isStart
+                          ? "#4CAF50"
+                          : step.isDestination
+                          ? "#F44336"
+                          : "#FF9800",
+                      },
+                    ]}>
                     <Text style={styles.timelineDotText}>{step.icon}</Text>
                   </View>
                   {!isLast && <View style={styles.timelineLine} />}
                 </View>
 
                 {/* 경로 정보 */}
-                <View style={[styles.timelineContent, { backgroundColor: themeColors.card }]}>
+                <View
+                  style={[
+                    styles.timelineContent,
+                    { backgroundColor: themeColors.card },
+                  ]}>
                   <View style={styles.timelineHeader}>
-                    <Text style={[styles.timelineTitle, { color: themeColors.text }]}>
+                    <Text
+                      style={[
+                        styles.timelineTitle,
+                        { color: themeColors.text },
+                      ]}>
                       {step.name}
                     </Text>
                     {step.distance > 0 && (
                       <View style={styles.distanceBadge}>
-                        <Text style={styles.distanceText}>{step.distance}km</Text>
+                        <Text style={styles.distanceText}>
+                          {step.distance}km
+                        </Text>
                       </View>
                     )}
                   </View>
-                  
-                  <Text style={[styles.timelineSubtitle, { color: themeColors.text, opacity: 0.7 }]}>
+
+                  <Text
+                    style={[
+                      styles.timelineSubtitle,
+                      { color: themeColors.text, opacity: 0.7 },
+                    ]}>
                     {step.location}
                   </Text>
 
@@ -231,7 +250,8 @@ const handleSavePlan = async () => {
                   {!isLast && step.distance > 0 && (
                     <View style={styles.travelInfo}>
                       <Text style={[styles.travelText, { color: "#666" }]}>
-                        ↓ {step.distance}km • 약 {Math.round(step.distance * 2)}분
+                        ↓ {step.distance}km • 약 {Math.round(step.distance * 2)}
+                        분
                       </Text>
                     </View>
                   )}
@@ -243,24 +263,26 @@ const handleSavePlan = async () => {
 
         {/* 경로 액션 버튼 */}
         <View style={styles.routeActions}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionButton, styles.startRouteButton]}
             onPress={() => {
               // optimalRouteData가 존재하는지 먼저 확인
               if (!optimalRouteData?.data) {
-                Alert.alert("오류", "경로 데이터가 없습니다. 다시 시도해주세요.");
+                Alert.alert(
+                  "오류",
+                  "경로 데이터가 없습니다. 다시 시도해주세요."
+                );
                 return;
               }
 
               // selectedRoute를 설정하되, 직접 optimalRouteData.data를 사용
-              setSelectedRoute({data: optimalRouteData.data});
-              
+              setSelectedRoute({ data: optimalRouteData.data });
+
               // 콘솔 로그에서도 optimalRouteData.data를 직접 사용
               console.log("선택된 경로 데이터:", optimalRouteData.data);
-              
+
               handleStartButtonPress();
-            }}
-          >
+            }}>
             <Text style={styles.startRouteButtonText}>이 경로로 시작</Text>
           </TouchableOpacity>
         </View>
@@ -273,8 +295,12 @@ const handleSavePlan = async () => {
     if (!currentLocation) return null;
 
     const coordinates = [currentLocation, ...destinations];
-    const latitudes = coordinates.map(coord => parseFloat(coord.mapY || coord.latitude));
-    const longitudes = coordinates.map(coord => parseFloat(coord.mapX || coord.longitude));
+    const latitudes = coordinates.map((coord) =>
+      parseFloat(coord.mapY || coord.latitude)
+    );
+    const longitudes = coordinates.map((coord) =>
+      parseFloat(coord.mapX || coord.longitude)
+    );
 
     const minLat = Math.min(...latitudes);
     const maxLat = Math.max(...latitudes);
@@ -295,44 +321,47 @@ const handleSavePlan = async () => {
   };
 
   const routeData2 = {
-    "origin" :{
-      "mapX": 127.10763058573032,
-      "mapY": 37.40246478787756
+    origin: {
+      mapX: 127.10763058573032,
+      mapY: 37.40246478787756,
     },
 
-    "destination": {
-      "type": "spot",
-      "name": "string",           // 관광지 이름 (예: "칠선계곡")
-      "location": "string",
-      "position": { "mapX": 127.1098265381582, "mapY": 37.394425724914576 }
-    }
-    ,
-    "mountain": {
-      "name": "지리산",
-      "location": "전북/경남",
-      "position": { "mapX": 127.17353858063272, "mapY": 37.3662968484953 }
+    destination: {
+      type: "spot",
+      name: "string", // 관광지 이름 (예: "칠선계곡")
+      location: "string",
+      position: { mapX: 127.1098265381582, mapY: 37.394425724914576 },
     },
-    "cafes": [
+    mountain: {
+      name: "지리산",
+      location: "전북/경남",
+      position: { mapX: 127.17353858063272, mapY: 37.3662968484953 },
+    },
+    cafes: [
       {
-        "type": "cafe",
-        "name": "카페",
-        "location": "카페 위치",
-        "position": { "mapX": 127.17353858063273 , "mapY": 37.3662968484953 }
-
-      }
+        type: "cafe",
+        name: "카페",
+        location: "카페 위치",
+        position: { mapX: 127.17353858063273, mapY: 37.3662968484953 },
+      },
     ],
 
-    "restaurants": null,
+    restaurants: null,
 
-    "stays": null,
+    stays: null,
 
-    "spots": null
-  }
+    spots: null,
+  };
 
   // 선택된 목적지/현재위치/여행계획이 준비되면 최적경로 + Kakao Directions 호출
   useEffect(() => {
     (async () => {
-      if (!currentLocation || parsedTravelPlan.length === 0 || !selectedDestination) return;
+      if (
+        !currentLocation ||
+        parsedTravelPlan.length === 0 ||
+        !selectedDestination
+      )
+        return;
 
       // 목적지 좌표 보정(산 선택 시 좌표가 없을 수 있음)
       let dest = await ensureDestinationHasCoords(selectedDestination);
@@ -377,13 +406,22 @@ const handleSavePlan = async () => {
   const mapCategoryToType = (categoryOrType, optionId) => {
     if (optionId === "mountain") return "mountain";
     switch (categoryOrType) {
-      case "관광지" || 'spot': return "spot";
-      case "맛집" || 'restaurant': return "restaurant";
-      case "관광시설" || 'cafe': return "cafe";
-      case "숙박" || 'stay': return "stay";
-      case "mountain": return "mountain";
+      case "관광지" || "spot":
+        return "spot";
+      case "맛집" || "restaurant":
+        return "restaurant";
+      case "관광시설" || "cafe":
+        return "cafe";
+      case "숙박" || "stay":
+        return "stay";
+      case "mountain":
+        return "mountain";
       default:
-        console.warn("알 수 없는 카테고리/타입:", categoryOrType, "→ 기본값 spot");
+        console.warn(
+          "알 수 없는 카테고리/타입:",
+          categoryOrType,
+          "→ 기본값 spot"
+        );
         return "spot";
     }
   };
@@ -412,22 +450,32 @@ const handleSavePlan = async () => {
         mapY: item.place.mapY,
         icon: (() => {
           switch (item.category) {
-            case "관광지": return "🏞️";
-            case "맛집": return "🍽️";
+            case "관광지":
+              return "🏞️";
+            case "맛집":
+              return "🍽️";
             case "카페":
-            case "관광시설": return "☕";
-            case "숙박": return "🏨";
-            default: return "📍";
+            case "관광시설":
+              return "☕";
+            case "숙박":
+              return "🏨";
+            default:
+              return "📍";
           }
         })(),
         color: (() => {
           switch (item.category) {
-            case "관광지": return "#4CAF50";
-            case "맛집": return "#FF9800";
+            case "관광지":
+              return "#4CAF50";
+            case "맛집":
+              return "#FF9800";
             case "카페":
-            case "관광시설": return "#2196F3";
-            case "숙박": return "#9C27B0";
-            default: return "#666";
+            case "관광시설":
+              return "#2196F3";
+            case "숙박":
+              return "#9C27B0";
+            default:
+              return "#666";
           }
         })(),
       });
@@ -436,67 +484,72 @@ const handleSavePlan = async () => {
   };
 
   // 산 좌표 조회(MountainSearchResponse: { mountains: [{ mountainName, mountainAddress, position:{mapX,mapY}}] })
-const getMountainPosition = async (name) => {
-  try {
-    const res = await mountainService.fetchMountainXY(name);
-    const mountains = Array.isArray(res?.mountains) ? res.mountains : [];
-    if (mountains.length === 0) return null;
+  const getMountainPosition = async (name) => {
+    try {
+      const res = await mountainService.fetchMountainXY(name);
+      const mountains = Array.isArray(res?.mountains) ? res.mountains : [];
+      if (mountains.length === 0) return null;
 
-    let exact = mountains.find(m => m?.mountainName === name);
+      let exact = mountains.find((m) => m?.mountainName === name);
 
-    // (옵션) 정확 일치가 없을 때, 정상화 후 일치 시도
-    // const normalize = (s) => {
-    //   if (!s) return "";
-    //   const trimmed = String(s).trim();
-    //   // 괄호 내용 제거 + '산'까지만 자르기 (덕유산(향적봉) → 덕유산)
-    //   const noBracket = trimmed.replace(/\s*[\(\[\{].*?[\)\]\}]\s*/g, "");
-    //   const match = noBracket.match(/.+?산/);
-    //   return match ? match[0] : noBracket;
-    // };
-    // if (!exact) {
-    //   const target = normalize(name);
-    //   exact = mountains.find(m => normalize(m?.mountainName) === target);
-    // }
+      // (옵션) 정확 일치가 없을 때, 정상화 후 일치 시도
+      // const normalize = (s) => {
+      //   if (!s) return "";
+      //   const trimmed = String(s).trim();
+      //   // 괄호 내용 제거 + '산'까지만 자르기 (덕유산(향적봉) → 덕유산)
+      //   const noBracket = trimmed.replace(/\s*[\(\[\{].*?[\)\]\}]\s*/g, "");
+      //   const match = noBracket.match(/.+?산/);
+      //   return match ? match[0] : noBracket;
+      // };
+      // if (!exact) {
+      //   const target = normalize(name);
+      //   exact = mountains.find(m => normalize(m?.mountainName) === target);
+      // }
 
-    if (!exact) {
-      console.warn(
-        `[getMountainPosition] 정확히 일치하는 산을 찾지 못했습니다: "${name}". 후보: ${mountains
-          .map(m => m?.mountainName)
-          .filter(Boolean)
-          .join(", ")}`
-      );
-      return null; // 정확 일치 없으면 null을 돌려 문제를 드러냄
-      // (옵션) 그래도 첫 번째로 대체하려면 아래 주석 해제
-      // exact = mountains[0];
-    }
+      if (!exact) {
+        console.warn(
+          `[getMountainPosition] 정확히 일치하는 산을 찾지 못했습니다: "${name}". 후보: ${mountains
+            .map((m) => m?.mountainName)
+            .filter(Boolean)
+            .join(", ")}`
+        );
+        return null; // 정확 일치 없으면 null을 돌려 문제를 드러냄
+        // (옵션) 그래도 첫 번째로 대체하려면 아래 주석 해제
+        // exact = mountains[0];
+      }
 
-    // 좌표 추출 (position 또는 mapX/mapY 단독 필드 대응)
-    const mapX = Number(exact?.position?.mapX ?? exact?.mapX);
-    const mapY = Number(exact?.position?.mapY ?? exact?.mapY);
-    if (!Number.isFinite(mapX) || !Number.isFinite(mapY)) {
-      console.warn("[getMountainPosition] 좌표 없음/비정상:", exact);
+      // 좌표 추출 (position 또는 mapX/mapY 단독 필드 대응)
+      const mapX = Number(exact?.position?.mapX ?? exact?.mapX);
+      const mapY = Number(exact?.position?.mapY ?? exact?.mapY);
+      if (!Number.isFinite(mapX) || !Number.isFinite(mapY)) {
+        console.warn("[getMountainPosition] 좌표 없음/비정상:", exact);
+        return null;
+      }
+
+      return {
+        name: exact.mountainName,
+        location: exact.mountainAddress,
+        position: { mapX, mapY },
+      };
+    } catch (e) {
+      console.error("getMountainPosition 에러:", e);
       return null;
     }
-
-    return {
-      name: exact.mountainName,
-      location: exact.mountainAddress,
-      position: { mapX, mapY },
-    };
-  } catch (e) {
-    console.error("getMountainPosition 에러:", e);
-    return null;
-  }
-};
+  };
 
   // 목적지 좌표가 없을 때(산 선택 등) 좌표 주입
   const ensureDestinationHasCoords = async (dest) => {
     if (dest?.mapX != null && dest?.mapY != null) return dest;
-    const isMountain = (dest?.id === "mountain") || (dest?.type === "mountain");
+    const isMountain = dest?.id === "mountain" || dest?.type === "mountain";
     if (isMountain && mountainName) {
       const m = await getMountainPosition(mountainName);
       if (m?.position) {
-        return { ...dest, mapX: m.position.mapX, mapY: m.position.mapY, location: m.location ?? dest.location };
+        return {
+          ...dest,
+          mapX: m.position.mapX,
+          mapY: m.position.mapY,
+          location: m.location ?? dest.location,
+        };
       }
     }
     return dest;
@@ -504,7 +557,11 @@ const getMountainPosition = async (name) => {
 
   // 분류/데이터 정규화 + 최적경로 요청 페이로드 생성
   const formatRouteData = async (finalDestination, includeMountain = false) => {
-    if (!currentLocation || parsedTravelPlan.length === 0 || !finalDestination) {
+    if (
+      !currentLocation ||
+      parsedTravelPlan.length === 0 ||
+      !finalDestination
+    ) {
       console.log("데이터 부족:", {
         currentLocation: !!currentLocation,
         parsedTravelPlan: parsedTravelPlan.length,
@@ -513,27 +570,37 @@ const getMountainPosition = async (name) => {
       return null;
     }
 
-  // 산 정보 (조건부로 포함)
-  let mountainObj = null;
-  if (includeMountain && mountainName) {
-    const m = await getMountainPosition(mountainName);
-    if (m) {
-      mountainObj = { name: m.name, location: m.location, position: m.position };
+    // 산 정보 (조건부로 포함)
+    let mountainObj = null;
+    if (includeMountain && mountainName) {
+      const m = await getMountainPosition(mountainName);
+      if (m) {
+        mountainObj = {
+          name: m.name,
+          location: m.location,
+          position: m.position,
+        };
+      }
     }
-  }
 
     // 목적지 객체(표준형)
     const destination = {
       name: finalDestination.name,
       location: finalDestination.location,
       type: mapCategoryToType(finalDestination.category, finalDestination.id),
-      position: (finalDestination.mapX != null && finalDestination.mapY != null)
+      position:
+        finalDestination.mapX != null && finalDestination.mapY != null
           ? { mapX: finalDestination.mapX, mapY: finalDestination.mapY }
           : null,
     };
 
     // 카테고리별 분류
-    const categorized = { tourist_spots: [], restaurants: [], cafes: [], stays: [] };
+    const categorized = {
+      tourist_spots: [],
+      restaurants: [],
+      cafes: [],
+      stays: [],
+    };
     parsedTravelPlan.forEach((item) => {
       if (finalDestination.name === item.place.name) return;
       const place = {
@@ -543,28 +610,52 @@ const getMountainPosition = async (name) => {
         type: mapCategoryToType(item.category),
       };
       switch (item.category) {
-        case "관광지": place.type = "spot"; categorized.tourist_spots.push(place); break;
-        case "맛집": place.type = "restaurant"; categorized.restaurants.push(place); break;
-        case "관광시설": place.type = "cafe"; categorized.cafes.push(place); break;
-        case "숙박": place.type = "stay"; categorized.stays.push(place); break;
-        default: break;
+        case "관광지":
+          place.type = "spot";
+          categorized.tourist_spots.push(place);
+          break;
+        case "맛집":
+          place.type = "restaurant";
+          categorized.restaurants.push(place);
+          break;
+        case "관광시설":
+          place.type = "cafe";
+          categorized.cafes.push(place);
+          break;
+        case "숙박":
+          place.type = "stay";
+          categorized.stays.push(place);
+          break;
+        default:
+          break;
       }
     });
 
     const normalize = (arr) => (arr.length ? arr : null);
 
-    console.log("최적 경로 요청 데이터에 들어갈 mountain",mountainObj)
+    console.log("최적 경로 요청 데이터에 들어갈 mountain", mountainObj);
     const routeData = {
       origin: currentLocation, // { mapX, mapY }
-      destination,             // { name, location, type, position }
+      destination, // { name, location, type, position }
       ...(mountainObj ? { mountain: mountainObj } : {}),
-      ...(normalize(categorized.cafes) ? { cafes: normalize(categorized.cafes) } : {}),
-      ...(normalize(categorized.restaurants) ? { restaurants: normalize(categorized.restaurants) } : {}),
-      ...(normalize(categorized.stays) ? { stays: normalize(categorized.stays) } : {}),
-      ...(normalize(categorized.tourist_spots) ? { spots: normalize(categorized.tourist_spots) } : {}),
+      ...(normalize(categorized.cafes)
+        ? { cafes: normalize(categorized.cafes) }
+        : {}),
+      ...(normalize(categorized.restaurants)
+        ? { restaurants: normalize(categorized.restaurants) }
+        : {}),
+      ...(normalize(categorized.stays)
+        ? { stays: normalize(categorized.stays) }
+        : {}),
+      ...(normalize(categorized.tourist_spots)
+        ? { spots: normalize(categorized.tourist_spots) }
+        : {}),
     };
 
-    console.log(`최적 경로 데이터 (mountain 포함: ${includeMountain}):`, routeData);
+    console.log(
+      `최적 경로 데이터 (mountain 포함: ${includeMountain}):`,
+      routeData
+    );
     return routeData;
   };
 
@@ -577,25 +668,27 @@ const getMountainPosition = async (name) => {
     }
 
     const apiClientJson = axios.create({
-      baseURL: 'http://api-santa.com',
+      baseURL: "http://api-santa.com",
       timeout: 10000,
       headers: { "Content-Type": "application/json" },
     });
 
     try {
       setLoading(true);
-      const response = await apiClientJson.post("/api/mountains/optimalRoute", routeData,);
-      const result  ={
+      const response = await apiClientJson.post(
+        "/api/mountains/optimalRoute",
+        routeData
+      );
+      const result = {
         success: true,
         data: response,
-        message: "최적 경로를 성공적으로 계산했습니다."
-      }
+        message: "최적 경로를 성공적으로 계산했습니다.",
+      };
       console.log("찐 응답", result);
 
       if (result.success) {
         setOptimalRouteData(result.data);
         console.log("최적 경로 응답:", result.data);
-        Alert.alert("성공", "최적 경로를 계산했습니다!");
       } else {
         console.error("최적 경로 계산 실패:", result.error);
         Alert.alert("오류", result.error || "최적 경로 계산에 실패했습니다.");
@@ -611,10 +704,18 @@ const getMountainPosition = async (name) => {
   // 목적지 선택 시: 산을 선택했다면 이 시점에 좌표 주입 시도
   const handleDestinationSelect = async (option) => {
     console.log("목적지 선택됨:", option);
-    if ((option.id === "mountain" || option.type === "mountain") && (option.mapX == null || option.mapY == null)) {
+    if (
+      (option.id === "mountain" || option.type === "mountain") &&
+      (option.mapX == null || option.mapY == null)
+    ) {
       const m = await getMountainPosition(mountainName);
       if (m?.position) {
-        option = { ...option, mapX: m.position.mapX, mapY: m.position.mapY, location: m.location ?? option.location };
+        option = {
+          ...option,
+          mapX: m.position.mapX,
+          mapY: m.position.mapY,
+          location: m.location ?? option.location,
+        };
       } else {
         Alert.alert("알림", "산 좌표를 찾을 수 없습니다.");
       }
@@ -625,149 +726,199 @@ const getMountainPosition = async (name) => {
   const renderDestinationSelector = () => {
     const options = getDestinationOptions();
     return (
-        <View style={[styles.destinationSelector, { backgroundColor: themeColors.card }]}>
-          <Text style={[styles.selectorTitle, { color: themeColors.text }]}>🎯 최종 목적지 선택</Text>
-          <Text style={[styles.selectorSubtitle, { color: themeColors.text }]}>
-            어디를 최종 목적지로 설정하시겠습니까?
-          </Text>
+      <View
+        style={[
+          styles.destinationSelector,
+          { backgroundColor: themeColors.card },
+        ]}>
+        <Text style={[styles.selectorTitle, { color: themeColors.text }]}>
+          🎯 최종 목적지 선택
+        </Text>
+        <Text style={[styles.selectorSubtitle, { color: themeColors.text }]}>
+          어디를 최종 목적지로 설정하시겠습니까?
+        </Text>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.optionsContainer}>
-            {options.map((option) => (
-                <TouchableOpacity
-                    key={option.id}
-                    style={[
-                      styles.destinationOption,
-                      {
-                        borderColor: selectedDestination?.id === option.id ? option.color : "#ddd",
-                        borderWidth: selectedDestination?.id === option.id ? 3 : 1,
-                        backgroundColor: selectedDestination?.id === option.id ? option.color + "20" : "white",
-                      },
-                    ]}
-                    onPress={() => handleDestinationSelect(option)}
-                >
-                  <Text style={styles.optionIcon}>{option.icon}</Text>
-                  <Text style={[styles.optionCategory, { color: option.color }]}>{option.category}</Text>
-                  <Text style={styles.optionName} numberOfLines={2}>
-                    {option.name}
-                  </Text>
-                  {selectedDestination?.id === option.id && (
-                      <View style={[styles.selectedBadge, { backgroundColor: option.color }]}>
-                        <Text style={styles.selectedBadgeText}>✓</Text>
-                      </View>
-                  )}
-                </TouchableOpacity>
-            ))}
-          </ScrollView>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.optionsContainer}>
+          {options.map((option) => (
+            <TouchableOpacity
+              key={option.id}
+              style={[
+                styles.destinationOption,
+                {
+                  borderColor:
+                    selectedDestination?.id === option.id
+                      ? option.color
+                      : "#ddd",
+                  borderWidth: selectedDestination?.id === option.id ? 3 : 1,
+                  backgroundColor:
+                    selectedDestination?.id === option.id
+                      ? option.color + "20"
+                      : "white",
+                },
+              ]}
+              onPress={() => handleDestinationSelect(option)}>
+              <Text style={styles.optionIcon}>{option.icon}</Text>
+              <Text style={[styles.optionCategory, { color: option.color }]}>
+                {option.category}
+              </Text>
+              <Text style={styles.optionName} numberOfLines={2}>
+                {option.name}
+              </Text>
+              {selectedDestination?.id === option.id && (
+                <View
+                  style={[
+                    styles.selectedBadge,
+                    { backgroundColor: option.color },
+                  ]}>
+                  <Text style={styles.selectedBadgeText}>✓</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
-          {!selectedDestination && (
-              <View style={styles.selectionPrompt}>
-                <Text style={[styles.promptText, { color: "#FF6B6B" }]}>⚠️ 최종 목적지를 선택해주세요</Text>
-              </View>
-          )}
-        </View>
+        {!selectedDestination && (
+          <View style={styles.selectionPrompt}>
+            <Text style={[styles.promptText, { color: "#FF6B6B" }]}>
+              ⚠️ 최종 목적지를 선택해주세요
+            </Text>
+          </View>
+        )}
+      </View>
     );
   };
 
   // 두 지점 간의 거리를 계산하는 함수 (haversine formula)
-const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; // 지구의 반지름 (km)
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  const distance = R * c;
-  return Math.round(distance); // km 단위로 반올림
-};
-
-// 최적 경로 데이터를 기반으로 경유지별 경로 정보를 생성하는 함수
-const generateRouteSteps = () => {
-  if (!optimalRouteData || !currentLocation || !selectedDestination) {
-    return [];
-  }
-
-  const steps = [];
-  let prevPoint = {
-    name: "현재 위치",
-    x: currentLocation.mapX,
-    y: currentLocation.mapY,
-    icon: "📍"
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // 지구의 반지름 (km)
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+    return Math.round(distance); // km 단위로 반올림
   };
 
-  // 출발지 추가
-  steps.push({
-    id: 'start',
-    name: prevPoint.name,
-    location: "출발지",
-    icon: prevPoint.icon,
-    distance: 0,
-    isStart: true
-  });
+  // 최적 경로 데이터를 기반으로 경유지별 경로 정보를 생성하는 함수
+  const generateRouteSteps = () => {
+    if (!optimalRouteData || !currentLocation || !selectedDestination) {
+      return [];
+    }
 
-  // waypoints가 있으면 경유지로 추가
-  if (optimalRouteData.data?.waypoints && optimalRouteData.data.waypoints.length > 0) {
-    optimalRouteData.data.waypoints.forEach((waypoint, index) => {
-      const distance = calculateDistance(prevPoint.y, prevPoint.x, waypoint.y, waypoint.x);
-      
-      steps.push({
-        id: `waypoint_${index}`,
-        name: waypoint.name,
-        location: "경유지",
-        distance: distance,
-        isWaypoint: true
-      });
+    const steps = [];
+    let prevPoint = {
+      name: "현재 위치",
+      x: currentLocation.mapX,
+      y: currentLocation.mapY,
+      icon: "📍",
+    };
 
-      prevPoint = waypoint;
-    });
-  }
-
-  // 최종 목적지 추가
-  if (selectedDestination.mapX && selectedDestination.mapY) {
-    const finalDistance = calculateDistance(
-      prevPoint.y, 
-      prevPoint.x, 
-      selectedDestination.mapY, 
-      selectedDestination.mapX
-    );
-
+    // 출발지 추가
     steps.push({
-      id: 'destination',
-      name: selectedDestination.name,
-      location: selectedDestination.location,
-      icon: selectedDestination.icon || "🎯",
-      distance: finalDistance,
-      isDestination: true
+      id: "start",
+      name: prevPoint.name,
+      location: "출발지",
+      icon: prevPoint.icon,
+      distance: 0,
+      isStart: true,
     });
-  }
 
-  return steps;
-};
+    // waypoints가 있으면 경유지로 추가
+    if (
+      optimalRouteData.data?.waypoints &&
+      optimalRouteData.data.waypoints.length > 0
+    ) {
+      optimalRouteData.data.waypoints.forEach((waypoint, index) => {
+        const distance = calculateDistance(
+          prevPoint.y,
+          prevPoint.x,
+          waypoint.y,
+          waypoint.x
+        );
+
+        steps.push({
+          id: `waypoint_${index}`,
+          name: waypoint.name,
+          location: "경유지",
+          distance: distance,
+          isWaypoint: true,
+        });
+
+        prevPoint = waypoint;
+      });
+    }
+
+    // 최종 목적지 추가
+    if (selectedDestination.mapX && selectedDestination.mapY) {
+      const finalDistance = calculateDistance(
+        prevPoint.y,
+        prevPoint.x,
+        selectedDestination.mapY,
+        selectedDestination.mapX
+      );
+
+      steps.push({
+        id: "destination",
+        name: selectedDestination.name,
+        location: selectedDestination.location,
+        icon: selectedDestination.icon || "🎯",
+        distance: finalDistance,
+        isDestination: true,
+      });
+    }
+
+    return steps;
+  };
 
   const renderTravelPlanSummary = () => {
     if (parsedTravelPlan.length === 0) return null;
     return (
-        <View style={[styles.summaryContainer, { backgroundColor: themeColors.card }]}>
-          <Text style={[styles.summaryTitle, { color: themeColors.text }]}>📋 선택된 여행 계획</Text>
-          {parsedTravelPlan.map((item, index) => (
-              <View key={index} style={styles.summaryItem}>
-                <Text style={[styles.summaryCategory, { color: "#4CAF50" }]}>{item.category}</Text>
-                <Text style={[styles.summaryPlace, { color: themeColors.text }]}>{item.place.name}</Text>
-              </View>
-          ))}
-          {selectedDestination && (
-              <View style={[styles.finalDestination, { backgroundColor: selectedDestination.color + "20" }]}>
-                <Text style={[styles.finalDestinationLabel, { color: selectedDestination.color }]}>
-                  🎯 최종 목적지: {selectedDestination.name}
-                </Text>
-              </View>
-          )}
-        </View>
+      <View
+        style={[
+          styles.summaryContainer,
+          { backgroundColor: themeColors.card },
+        ]}>
+        <Text style={[styles.summaryTitle, { color: themeColors.text }]}>
+          📋 선택된 여행 계획
+        </Text>
+        {parsedTravelPlan.map((item, index) => (
+          <View key={index} style={styles.summaryItem}>
+            <Text style={[styles.summaryCategory, { color: "#4CAF50" }]}>
+              {item.category}
+            </Text>
+            <Text style={[styles.summaryPlace, { color: themeColors.text }]}>
+              {item.place.name}
+            </Text>
+          </View>
+        ))}
+        {selectedDestination && (
+          <View
+            style={[
+              styles.finalDestination,
+              { backgroundColor: selectedDestination.color + "20" },
+            ]}>
+            <Text
+              style={[
+                styles.finalDestinationLabel,
+                { color: selectedDestination.color },
+              ]}>
+              🎯 최종 목적지: {selectedDestination.name}
+            </Text>
+          </View>
+        )}
+      </View>
     );
   };
 
-    const handleDecideRoute = async () => {
+  const handleDecideRoute = async () => {
     if (!selectedRoute || !selectedDestination || !optimalRouteData) {
       Alert.alert("알림", "먼저 경로를 선택해주세요.");
       return;
@@ -777,7 +928,7 @@ const generateRouteSteps = () => {
       // formatRouteData를 사용하여 기본 경로 데이터 생성
       const baseRouteData = await formatRouteData(selectedDestination, true);
       console.log("baseRouteData ", baseRouteData);
-      
+
       if (!baseRouteData) {
         Alert.alert("오류", "경로 데이터를 생성할 수 없습니다.");
         return;
@@ -791,10 +942,13 @@ const generateRouteSteps = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+    <View
+      style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* 헤더 */}
       <View style={[styles.header, { backgroundColor: "#4CAF50" }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}>
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>🧭 산길 동행</Text>
@@ -808,18 +962,29 @@ const generateRouteSteps = () => {
         {renderTravelPlanSummary()}
 
         {/* 목적지 정보 */}
-        <View style={[styles.destinationContainer, { backgroundColor: themeColors.card }]}>
+        <View
+          style={[
+            styles.destinationContainer,
+            { backgroundColor: themeColors.card },
+          ]}>
           <Text style={[styles.destinationTitle, { color: themeColors.text }]}>
-            📍 {selectedDestination ? `${selectedDestination.name}으로` : "목적지를 선택하여"} 가는 길 안내
+            📍{" "}
+            {selectedDestination
+              ? `${selectedDestination.name}으로`
+              : "목적지를 선택하여"}{" "}
+            가는 길 안내
           </Text>
-          <Text style={[styles.destinationSubtitle, { color: themeColors.text }]}>
+          <Text
+            style={[styles.destinationSubtitle, { color: themeColors.text }]}>
             현재 위치에서 목적지까지 최적의 경로를 안내해드립니다
           </Text>
         </View>
 
         {/* 지도 영역 */}
         <View style={styles.mapContainer}>
-          {selectedDestination && selectedDestination.mapX != null && selectedDestination.mapY != null ? (
+          {selectedDestination &&
+          selectedDestination.mapX != null &&
+          selectedDestination.mapY != null ? (
             <WebView
               source={{
                 uri: `https://map.kakao.com/link/map/${selectedDestination.name},${selectedDestination.mapY},${selectedDestination.mapX}`,
@@ -827,37 +992,48 @@ const generateRouteSteps = () => {
               style={{ flex: 1 }}
             />
           ) : (
-            <View style={[styles.mapPlaceholder, { backgroundColor: themeColors.card }]}>
-              <Text style={{ textAlign: "center", marginTop: 80 }}>목적지를 선택하세요</Text>
+            <View
+              style={[
+                styles.mapPlaceholder,
+                { backgroundColor: themeColors.card },
+              ]}>
+              <Text style={{ textAlign: "center", marginTop: 80 }}>
+                목적지를 선택하세요
+              </Text>
             </View>
           )}
         </View>
 
         {/* 경로 선택 -> 경로 타임라인으로 변경 */}
         <View style={styles.routesContainer}>
-          <Text style={[styles.routesTitle, { color: themeColors.text }]}>📍 최적 경로</Text>
+          <Text style={[styles.routesTitle, { color: themeColors.text }]}>
+            📍 최적 경로
+          </Text>
           {renderRouteTimeline()}
         </View>
       </ScrollView>
 
       {/* 하단 액션 버튼 */}
-      <View style={[styles.actionContainer, { backgroundColor: themeColors.card }]}>
-        <TouchableOpacity style={[styles.laterButton, { borderColor: themeColors.border }]} onPress={() => router.back()}>
-          <Text style={[styles.laterButtonText, { color: themeColors.text }]}>나중에</Text>
+      <View
+        style={[styles.actionContainer, { backgroundColor: themeColors.card }]}>
+        <TouchableOpacity
+          style={[styles.laterButton, { borderColor: themeColors.border }]}
+          onPress={() => router.back()}>
+          <Text style={[styles.laterButtonText, { color: themeColors.text }]}>
+            나중에
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.startButton,
             {
-              backgroundColor: selectedRoute && selectedDestination ? "#4CAF50" : "#ccc",
+              backgroundColor:
+                selectedRoute && selectedDestination ? "#4CAF50" : "#ccc",
               opacity: selectedRoute && selectedDestination ? 1 : 0.5,
             },
           ]}
-          onPress={
-            handleSavePlan
-          }
-          disabled={!selectedRoute || !selectedDestination || !selectedDate}
-        >
+          onPress={handleSavePlan}
+          disabled={!selectedRoute || !selectedDestination || !selectedDate}>
           <Text style={styles.startButtonText}>🚀 시작</Text>
         </TouchableOpacity>
       </View>
@@ -867,26 +1043,26 @@ const generateRouteSteps = () => {
         animationType="fade"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={closeModal}
-      >
+        onRequestClose={closeModal}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: themeColors.card }]}>
+          <View
+            style={[
+              styles.modalContainer,
+              { backgroundColor: themeColors.card },
+            ]}>
             <Calendar
-            onDayPress={(day) => {
-              console.log('선택된 날', day);
-              setSelectedDate(day.dateString);
-            }}
-            monthFormat={'yyyy MM'}
-            hideExtraDays={true}
-            firstDay={1}
+              onDayPress={(day) => {
+                console.log("선택된 날", day);
+                setSelectedDate(day.dateString);
+              }}
+              monthFormat={"yyyy MM"}
+              hideExtraDays={true}
+              firstDay={1}
             />
-            
+
             <TouchableOpacity
               style={[styles.modalCloseButton, { backgroundColor: "#4CAF50" }]}
-              onPress={
-                closeModal
-              }
-            >
+              onPress={closeModal}>
               <Text style={styles.modalCloseButtonText}>확인</Text>
             </TouchableOpacity>
           </View>
@@ -899,7 +1075,13 @@ const generateRouteSteps = () => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContainer: { flex: 1 },
-  header: { flexDirection: "row", alignItems: "center", paddingTop: 50, paddingBottom: 15, paddingHorizontal: 20 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 50,
+    paddingBottom: 15,
+    paddingHorizontal: 20,
+  },
   backButton: { marginRight: 15 },
   backButtonText: { fontSize: 24, color: "white", fontWeight: "bold" },
   headerTitle: { fontSize: 20, fontWeight: "bold", color: "white" },
@@ -908,32 +1090,78 @@ const styles = StyleSheet.create({
   selectorSubtitle: { fontSize: 14, opacity: 0.7, marginBottom: 15 },
   optionsContainer: { flexDirection: "row" },
   destinationOption: {
-    width: 120, height: 140, borderRadius: 12, padding: 10, marginRight: 10,
-    alignItems: "center", justifyContent: "center", position: "relative",
+    width: 120,
+    height: 140,
+    borderRadius: 12,
+    padding: 10,
+    marginRight: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
   },
   optionIcon: { fontSize: 30, marginBottom: 8 },
   optionCategory: { fontSize: 12, fontWeight: "600", marginBottom: 4 },
   optionName: { fontSize: 11, textAlign: "center", lineHeight: 14 },
-  selectedBadge: { position: "absolute", top: 5, right: 5, width: 20, height: 20, borderRadius: 10, justifyContent: "center", alignItems: "center" },
+  selectedBadge: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   selectedBadgeText: { color: "white", fontSize: 12, fontWeight: "bold" },
-  selectionPrompt: { marginTop: 10, padding: 10, backgroundColor: "#FFF5F5", borderRadius: 8, alignItems: "center" },
+  selectionPrompt: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: "#FFF5F5",
+    borderRadius: 8,
+    alignItems: "center",
+  },
   promptText: { fontSize: 14, fontWeight: "600" },
   summaryContainer: { margin: 15, marginTop: 0, padding: 15, borderRadius: 12 },
   summaryTitle: { fontSize: 16, fontWeight: "bold", marginBottom: 10 },
   summaryItem: { flexDirection: "row", alignItems: "center", marginBottom: 5 },
   summaryCategory: { fontSize: 14, fontWeight: "600", minWidth: 60 },
   summaryPlace: { fontSize: 14, flex: 1 },
-  finalDestination: { marginTop: 10, padding: 10, borderRadius: 8, alignItems: "center" },
+  finalDestination: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
   finalDestinationLabel: { fontSize: 16, fontWeight: "bold" },
-  destinationContainer: { margin: 15, marginTop: 0, padding: 20, borderRadius: 12 },
+  destinationContainer: {
+    margin: 15,
+    marginTop: 0,
+    padding: 20,
+    borderRadius: 12,
+  },
   destinationTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 8 },
   destinationSubtitle: { fontSize: 14, opacity: 0.7, lineHeight: 20 },
   mapContainer: { margin: 15, height: 500 },
-  mapPlaceholder: { flex: 1, borderRadius: 12, overflow: "hidden", position: "relative" },
+  mapPlaceholder: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+    position: "relative",
+  },
   routesContainer: { paddingHorizontal: 15, paddingBottom: 20 },
   routesTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 15 },
-  routeCard: { padding: 20, borderRadius: 12, marginBottom: 15, position: "relative" },
-  routeHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
+  routeCard: {
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 15,
+    position: "relative",
+  },
+  routeHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
   routeDuration: { fontSize: 18, fontWeight: "bold" },
   routeCost: { fontSize: 16, fontWeight: "600" },
   routeDescription: { fontSize: 14, opacity: 0.7, marginBottom: 15 },
@@ -941,64 +1169,83 @@ const styles = StyleSheet.create({
   stepItem: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
   stepDot: { width: 8, height: 8, borderRadius: 4, marginRight: 12 },
   stepText: { fontSize: 14, flex: 1 },
-  selectedIndicator: { position: "absolute", top: 15, right: 15, backgroundColor: "#4CAF50", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  selectedIndicator: {
+    position: "absolute",
+    top: 15,
+    right: 15,
+    backgroundColor: "#4CAF50",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
   selectedText: { color: "white", fontSize: 12, fontWeight: "bold" },
   actionContainer: { flexDirection: "row", padding: 15, gap: 10 },
-  laterButton: { flex: 1, paddingVertical: 15, borderRadius: 12, borderWidth: 1, alignItems: "center" },
+  laterButton: {
+    flex: 1,
+    paddingVertical: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+  },
   laterButtonText: { fontSize: 16, fontWeight: "600" },
-  startButton: { flex: 1, paddingVertical: 15, borderRadius: 12, alignItems: "center" },
+  startButton: {
+    flex: 1,
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: "center",
+  },
   startButtonText: { color: "white", fontSize: 16, fontWeight: "bold" },
-    // 새로 추가되는 스타일들
+  // 새로 추가되는 스타일들
   routeTimelineContainer: {
     marginTop: 10,
   },
   noRouteContainer: {
     padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     minHeight: 100,
   },
   noRouteText: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     opacity: 0.7,
   },
   routeSummary: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     padding: 15,
     borderRadius: 12,
     marginBottom: 15,
   },
   summaryLabel: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginBottom: 4,
   },
   summaryValue: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   timelineContainer: {
     paddingHorizontal: 10,
   },
   timelineItem: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 15,
   },
   timelineLineContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginRight: 15,
   },
   timelineDot: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 3,
-    borderColor: 'white',
-    shadowColor: '#000',
+    borderColor: "white",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
@@ -1010,7 +1257,7 @@ const styles = StyleSheet.create({
   timelineLine: {
     width: 2,
     height: 60,
-    backgroundColor: '#ddd',
+    backgroundColor: "#ddd",
     marginTop: 5,
   },
   timelineContent: {
@@ -1018,29 +1265,29 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: "#f0f0f0",
   },
   timelineHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 5,
   },
   timelineTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     flex: 1,
   },
   distanceBadge: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: "#4CAF50",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
   distanceText: {
-    color: 'white',
+    color: "white",
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   timelineSubtitle: {
     fontSize: 14,
@@ -1050,14 +1297,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: "#f0f0f0",
   },
   travelText: {
     fontSize: 12,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   routeActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginTop: 20,
     gap: 10,
   },
@@ -1065,38 +1312,38 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   editButton: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
   },
   editButtonText: {
-    color: '#666',
+    color: "#666",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   startRouteButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: "#4CAF50",
   },
   startRouteButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
-    modalOverlay: {
+  modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContainer: {
     width: width * 0.9,
     padding: 30,
     borderRadius: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -1107,8 +1354,8 @@ const styles = StyleSheet.create({
   },
   modalText: {
     fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
     marginBottom: 30,
   },
   modalCloseButton: {
@@ -1116,11 +1363,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 25,
     minWidth: 100,
-    alignItems: 'center',
+    alignItems: "center",
   },
   modalCloseButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
 });
