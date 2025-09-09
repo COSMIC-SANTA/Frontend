@@ -6,12 +6,9 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from "react-native";
@@ -20,14 +17,6 @@ import BottomNavBar from "./s_navigationbar";
 
 export default function SettingScreen() {
   const router = useRouter();
-  
-  const [userInfo, setUserInfo] = useState({
-    name: "홍길동",
-    location: "서울",
-    age: "25",
-    level: "중급",
-    profileImage: null,
-  });
 
   const [currentPlans, setCurrentPlans] = useState([]);
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
@@ -36,7 +25,6 @@ export default function SettingScreen() {
   const [isLoadingCompleted, setIsLoadingCompleted] = useState([true]);
 
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-  const [editingUserInfo, setEditingUserInfo] = useState(userInfo);
 
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? "light"];
@@ -161,17 +149,6 @@ export default function SettingScreen() {
     router.push(`/${screen}`);
   };
 
-  const handleEditProfile = () => {
-    setEditingUserInfo(userInfo);
-    setIsEditModalVisible(true);
-  };
-
-  const handleSaveProfile = () => {
-    setUserInfo(editingUserInfo);
-    setIsEditModalVisible(false);
-    Alert.alert("성공", "프로필이 업데이트되었습니다.");
-  };
-
   const handleImagePicker = () => {
     // 이미지 피커 구현 (expo-image-picker 사용 예정)
     Alert.alert("알림", "이미지 선택 기능은 추후 구현 예정입니다.");
@@ -215,83 +192,6 @@ export default function SettingScreen() {
     <View style={styles.wrapper}>
     <ScrollView style={[styles.container, { backgroundColor: "#325A2A" }]}>
       {/* 상단 프로필 섹션 */}
-      <View
-        style={[styles.profileSection, { backgroundColor: themeColors.card }]}
-      >
-        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-          프로필 설정
-        </Text>
-
-        <View style={styles.profileContainer}>
-          <TouchableOpacity
-            onPress={handleImagePicker}
-            style={styles.profileImageContainer}
-          >
-            {userInfo.profileImage ? (
-              <Image
-                source={{ uri: userInfo.profileImage }}
-                style={styles.profileImage}
-              />
-            ) : (
-              <View
-                style={[
-                  styles.profileImagePlaceholder,
-                  { backgroundColor: themeColors.border },
-                ]}
-              >
-                <Text
-                  style={[styles.profileImageText, { color: themeColors.text }]}
-                >
-                  📷
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-
-          <View style={styles.profileInfo}>
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: themeColors.text }]}>
-                이름:
-              </Text>
-              <Text style={[styles.infoValue, { color: themeColors.text }]}>
-                {userInfo.name}
-              </Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: themeColors.text }]}>
-                지역:
-              </Text>
-              <Text style={[styles.infoValue, { color: themeColors.text }]}>
-                {userInfo.location}
-              </Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: themeColors.text }]}>
-                나이:
-              </Text>
-              <Text style={[styles.infoValue, { color: themeColors.text }]}>
-                {userInfo.age}세
-              </Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: themeColors.text }]}>
-                등산 레벨:
-              </Text>
-              <LevelBadge level={userInfo.level} />
-            </View>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.editButton,
-            { backgroundColor: themeColors.tint || "#007AFF" },
-          ]}
-          onPress={handleEditProfile}
-        >
-          <Text style={styles.editButtonText}>프로필 수정</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* 중간 계획 섹션 */}
       <View style={[styles.planSection, { backgroundColor: themeColors.card }]}>
@@ -392,106 +292,7 @@ export default function SettingScreen() {
       </View>
 
 
-      {/* 프로필 수정 모달 */}
-      <Modal
-        visible={isEditModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsEditModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.modalContent,
-              { backgroundColor: themeColors.background },
-            ]}
-          >
-            <Text style={[styles.modalTitle, { color: themeColors.text }]}>
-              프로필 수정
-            </Text>
-
-            <View style={styles.inputContainer}>
-              <Text style={[styles.inputLabel, { color: themeColors.text }]}>
-                이름
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    borderColor: themeColors.border || "#ddd",
-                    backgroundColor: themeColors.card || "#f9f9f9",
-                    color: themeColors.text,
-                  },
-                ]}
-                value={editingUserInfo.name}
-                onChangeText={(text) =>
-                  setEditingUserInfo({ ...editingUserInfo, name: text })
-                }
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={[styles.inputLabel, { color: themeColors.text }]}>
-                지역
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    borderColor: themeColors.border || "#ddd",
-                    backgroundColor: themeColors.card || "#f9f9f9",
-                    color: themeColors.text,
-                  },
-                ]}
-                value={editingUserInfo.location}
-                onChangeText={(text) =>
-                  setEditingUserInfo({ ...editingUserInfo, location: text })
-                }
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={[styles.inputLabel, { color: themeColors.text }]}>
-                나이
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    borderColor: themeColors.border || "#ddd",
-                    backgroundColor: themeColors.card || "#f9f9f9",
-                    color: themeColors.text,
-                  },
-                ]}
-                value={editingUserInfo.age}
-                onChangeText={(text) =>
-                  setEditingUserInfo({ ...editingUserInfo, age: text })
-                }
-                keyboardType="numeric"
-              />
-            </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setIsEditModalVisible(false)}
-              >
-                <Text style={styles.cancelButtonText}>취소</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  { backgroundColor: themeColors.tint || "#007AFF" },
-                ]}
-                onPress={handleSaveProfile}
-              >
-                <Text style={styles.saveButtonText}>저장</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>   
+      {/* 프로필 수정 모달 */}  
     </ScrollView>
     <BottomNavBar onNavigate={handleNavigation} />
     </View>
