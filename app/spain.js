@@ -72,12 +72,21 @@ const INTEREST_ENUM = {
   "activity\n(leisure)": "ACTIVITY",
 };
 
-const MEDALS = [
-  { id: "1", title: "special prize", medal: require("../assets/images/greenmedal.png") },
-  { id: "2", title: "7week", medal: require("../assets/images/yellowmedal.png") },
-  { id: "3", title: "1month", medal: require("../assets/images/pinkmedal.png") },
-  { id: "4", title: "explore", medal: require("../assets/images/redmedal.png") },
-];
+
+export const baseMountainName = (raw) => {
+  if (!raw) return "";
+  let s = String(raw).trim();
+
+  // 괄호/대괄호/중괄호 안 내용 제거: "덕유산(향적봉)" → "덕유산"
+  s = s.replace(/\s*[\(\[\{].*?[\)\]\}]\s*/g, "");
+
+  // '산'이 있으면 그 글자까지 자르기: "지리산 천왕봉" → "지리산"
+  const i = s.indexOf("산");
+  if (i !== -1) s = s.slice(0, i + 1);
+
+  // 공백 정리
+  return s.replace(/\s+/g, " ").trim();
+};
 
 /** 좌표 보강 */
 async function fetchCoordsByName(name) {
@@ -153,8 +162,6 @@ function BannerCard({
               {
                 opacity: frontOpacity,
                 transform: [{ rotateY: frontRotate }],
-                width: cardW,
-                height: cardH,
               },
             ]}
           >
@@ -172,8 +179,6 @@ function BannerCard({
               {
                 opacity: backOpacity,
                 transform: [{ rotateY: backRotate }],
-                width: cardW,
-                height: cardH,
               },
             ]}
             pointerEvents="auto"
@@ -225,7 +230,7 @@ function BannerCard({
                     style={styles.confirmButton}
                     onPress={() => {
                       const location = info?.location;
-                      const mountainName = info?.mountainName;
+                      const mountainName = baseMountainName(info?.mountainName);
                       if (location) {
                         
                         router.push(`/mountain-tourism?mountainName=${encodeURIComponent(mountainName)}&location=${encodeURIComponent(location)}&pageNo=1`);
@@ -243,7 +248,7 @@ function BannerCard({
         </View>
       </TouchableOpacity>
 
-      <Text style={styles.cardText}>{item.name}</Text>
+      <Text style={styles.cardText}>{baseMountainName(item.name)}</Text>
     </View>
   );
 }
@@ -782,9 +787,8 @@ const styles = StyleSheet.create({
   },
   mountainImage: {
     width: "100%",
-    height: undefined,
-    aspectRatio: 200 / 280,
-    borderRadius: 20,
+    height: "100%",
+    resizeMode: "cover",
   },
   cardText: {
     fontSize: 16,
@@ -800,11 +804,12 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     position: "relative",
+    overflow: "hidden",   // ★ 이미지/앞뒤면을 카드 안에 깔끔히 클립
+    borderRadius: 20,     // ★ 카드와 동일 반경
   },
   cardFace: {
     position: "absolute",
-    width: "100%",
-    height: "100%",
+    top: 0, left: 0, right: 0, bottom: 0, // ★ 부모(cardInner) 꽉 채우기
     backfaceVisibility: "hidden",
     borderRadius: 20,
   },
