@@ -60,16 +60,17 @@
 //   );
 // }
 
+import { useColorScheme } from "@/hooks/useColorScheme";
 import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
-import { Tabs } from "expo-router";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
-import { useColorScheme } from "@/hooks/useColorScheme";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -80,8 +81,8 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-
-      <Tabs
+      <SafeAreaProvider>
+      <Stack
         // ✅ 기본 탭바 완전히 숨기기
         screenOptions={{
           headerShown: false,
@@ -89,17 +90,20 @@ export default function RootLayout() {
         }}
       >
         {/* login은 라우팅만 유지하고 탭에 노출X */}
-        <Tabs.Screen name="login" options={{ href: null }} />
-        <Tabs.Screen name="main" />
-        <Tabs.Screen name="dashboard" />
-        <Tabs.Screen name="dev-menu" />
-        <Tabs.Screen name="mountain-tourism" />
-        <Tabs.Screen name="mountain-direction" />
-        <Tabs.Screen name="optimal-route" />
-        <Tabs.Screen name="+not-found" options={{ href: null }} />
-      </Tabs>
-
+          <Stack.Screen name="login" />
+          <Stack.Screen name="spain" />         {/* ← 메인 화면 파일이 spain.js라면 이걸 노출 */}
+          <Stack.Screen name="main" />
+          <Stack.Screen name="dashboard" />
+          <Stack.Screen name="dev-menu" />
+          <Stack.Screen name="mountain-tourism" />
+          <Stack.Screen name="mountain-direction" />
+          <Stack.Screen name="optimal-route" />
+          {/* 필요하면 (tabs) 그룹을 따로 두고 그 안에서 Tabs 구성 */}
+          {/* <Stack.Screen name="(tabs)" /> */}
+          <Stack.Screen name="+not-found" />
+      </Stack>
       <StatusBar style="auto" />
+    </SafeAreaProvider>
     </ThemeProvider>
   );
 }
