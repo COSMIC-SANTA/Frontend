@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,6 +20,26 @@ import BottomNavBar from "./s_navigationbar";
 export default function SettingScreen() {
   const router = useRouter();
   const [nickName, setNickName] = useState("");
+  const [isPlanModalVisible, setIsPlanModalVisible] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const openPlanModal = (plan) => {
+    setSelectedPlan(plan);
+    setIsPlanModalVisible(true);
+  };
+  const closePlanModal = () => {
+    setIsPlanModalVisible(false);
+    setSelectedPlan(null);
+  };
+  const fmtDate = (iso) => {
+    if (!iso) return "미정";
+    try {
+      // "2025-09-24T00:00:00" → "2025-09-24"
+      return String(iso).split("T")[0];
+    } catch {
+      return String(iso);
+    }
+  };
+  const firstN = (arr, n = 3) => (Array.isArray(arr) ? arr.slice(0, n) : []);
 
   const [currentPlans, setCurrentPlans] = useState([]);
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
@@ -239,12 +260,14 @@ export default function SettingScreen() {
             <>
               {currentPlans.length > 0 ? (
                 currentPlans.map((plan, index) => (
-                  <View
+                  <TouchableOpacity
+                    activeOpacity={0.9}
                     key={plan?.planId}
                     style={[
                       styles.planCard,
                       { backgroundColor: themeColors.background },
-                    ]}>
+                    ]}
+                    onPress={() => openPlanModal(plan)}>
                     <View style={styles.planInfo}>
                       <Text
                         style={[styles.planName, { color: themeColors.text }]}>
@@ -255,16 +278,19 @@ export default function SettingScreen() {
                           styles.planDate,
                           { color: themeColors.text + "80" },
                         ]}>
-                        계획일: {plan?.targetDate}
+                        계획일: {fmtDate(plan?.targetDate)}
                       </Text>
                       <View style={styles.completeButton}>
                         <TouchableOpacity
-                          onPress={() => handleCompletePlan(plan?.planId)}>
+                          onPress={(e) => {
+                            e?.stopPropagation?.();
+                            handleCompletePlan(plan?.planId);
+                          }}>
                           <Text style={styles.completeButtonText}>완료</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))
               ) : (
                 <Text
@@ -341,7 +367,187 @@ export default function SettingScreen() {
           )}
         </View>
 
-        {/* 프로필 수정 모달 */}
+        {/* 계획 요약 모달 */}
+        <Modal
+          animationType="fade"
+          transparent
+          visible={isPlanModalVisible}
+          onRequestClose={closePlanModal}>
+          <View style={styles.modalOverlay}>
+            <View
+              style={[
+                styles.modalContent,
+                { backgroundColor: themeColors.card },
+              ]}>
+              <Text style={[styles.modalTitle, { color: themeColors.text }]}>
+                🗓️ 여행 계획 요약
+              </Text>
+
+              {/* 산 */}
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryEmoji}>🏔️</Text>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[styles.summaryLabel, { color: themeColors.text }]}>
+                    산
+                  </Text>
+                  <Text
+                    style={[styles.summaryValue, { color: themeColors.text }]}>
+                    {selectedPlan?.mountainDTO?.name || "미정"}
+                  </Text>
+                </View>
+              </View>
+
+              {/* 계획일 */}
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryEmoji}>📅</Text>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[styles.summaryLabel, { color: themeColors.text }]}>
+                    계획일
+                  </Text>
+                  <Text
+                    style={[styles.summaryValue, { color: themeColors.text }]}>
+                    {fmtDate(selectedPlan?.targetDate)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* 관광지 */}
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryEmoji}>🏞️</Text>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[styles.summaryLabel, { color: themeColors.text }]}>
+                    관광지
+                  </Text>
+                  {firstN(selectedPlan?.spotDTOS).length ? (
+                    firstN(selectedPlan?.spotDTOS).map((s, i) => (
+                      <Text
+                        key={`spot-${i}`}
+                        style={[
+                          styles.summaryValue,
+                          { color: themeColors.text },
+                        ]}>
+                        • {s?.name} ({s?.location})
+                      </Text>
+                    ))
+                  ) : (
+                    <Text
+                      style={[
+                        styles.summaryEmpty,
+                        { color: themeColors.text + "80" },
+                      ]}>
+                      항목 없음
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              {/* 카페/관광시설 */}
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryEmoji}>☕</Text>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[styles.summaryLabel, { color: themeColors.text }]}>
+                    카페·관광시설
+                  </Text>
+                  {firstN(selectedPlan?.cafeDTOS).length ? (
+                    firstN(selectedPlan?.cafeDTOS).map((c, i) => (
+                      <Text
+                        key={`cafe-${i}`}
+                        style={[
+                          styles.summaryValue,
+                          { color: themeColors.text },
+                        ]}>
+                        • {c?.name} ({c?.location})
+                      </Text>
+                    ))
+                  ) : (
+                    <Text
+                      style={[
+                        styles.summaryEmpty,
+                        { color: themeColors.text + "80" },
+                      ]}>
+                      항목 없음
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              {/* 식당 */}
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryEmoji}>🍽️</Text>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[styles.summaryLabel, { color: themeColors.text }]}>
+                    식당
+                  </Text>
+                  {firstN(selectedPlan?.restaurantDTOS).length ? (
+                    firstN(selectedPlan?.restaurantDTOS).map((r, i) => (
+                      <Text
+                        key={`rest-${i}`}
+                        style={[
+                          styles.summaryValue,
+                          { color: themeColors.text },
+                        ]}>
+                        • {r?.name} ({r?.location})
+                      </Text>
+                    ))
+                  ) : (
+                    <Text
+                      style={[
+                        styles.summaryEmpty,
+                        { color: themeColors.text + "80" },
+                      ]}>
+                      항목 없음
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              {/* 숙소 */}
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryEmoji}>🏨</Text>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[styles.summaryLabel, { color: themeColors.text }]}>
+                    숙소
+                  </Text>
+                  {firstN(selectedPlan?.stayDTOS).length ? (
+                    firstN(selectedPlan?.stayDTOS).map((h, i) => (
+                      <Text
+                        key={`stay-${i}`}
+                        style={[
+                          styles.summaryValue,
+                          { color: themeColors.text },
+                        ]}>
+                        • {h?.name} ({h?.location})
+                      </Text>
+                    ))
+                  ) : (
+                    <Text
+                      style={[
+                        styles.summaryEmpty,
+                        { color: themeColors.text + "80" },
+                      ]}>
+                      항목 없음
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              {/* 버튼들 */}
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  onPress={closePlanModal}
+                  style={[styles.modalButton, styles.cancelButton]}>
+                  <Text style={styles.cancelButtonText}>닫기</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
       <BottomNavBar onNavigate={handleNavigation} />
     </View>
@@ -536,6 +742,31 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 20,
     maxHeight: "80%",
+  },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    marginBottom: 12,
+  },
+  summaryEmoji: {
+    fontSize: 20,
+    width: 24,
+    textAlign: "center",
+  },
+  summaryLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 4,
+    opacity: 0.9,
+  },
+  summaryValue: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  summaryEmpty: {
+    fontSize: 13,
+    fontStyle: "italic",
   },
   modalTitle: {
     fontSize: 18,
