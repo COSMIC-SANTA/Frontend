@@ -80,7 +80,6 @@ export default function LoginScreen() {
       <View
         style={[
           styles.loginContainer,
-          { backgroundColor: themeColors.background },
         ]}
       >
         <Text style={[styles.title, { color: themeColors.text }]}>로그인</Text>
@@ -135,8 +134,8 @@ export default function LoginScreen() {
             styles.loginButton,
             {
               backgroundColor: isLoading
-                ? (themeColors.tint || "#007AFF") + "80"
-                : themeColors.tint || "#007AFF",
+                ? ('#325A2A' || "#325A2A") + "80"
+                : '#325A2A' || "#325A2A",
             },
           ]}
           onPress={handleLogin}
@@ -154,21 +153,10 @@ export default function LoginScreen() {
             <Text
               style={[
                 styles.linkText,
-                { color: themeColors.tint || "#007AFF" },
+                { color: 'green' || "#007AFF" },
               ]}
             >
               계정이 없으신가요? 회원가입
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.forgotPassword}>
-            <Text
-              style={[
-                styles.linkText,
-                { color: themeColors.tint || "#007AFF" },
-              ]}
-            >
-              비밀번호를 잊으셨나요?
             </Text>
           </TouchableOpacity>
         </View>
@@ -182,8 +170,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: '#325A2A'
   },
   loginContainer: {
+    backgroundColor: '#FFF9E5',
     width: "90%",
     maxWidth: 400,
     padding: 20,
@@ -229,6 +219,7 @@ const styles = StyleSheet.create({
   loginButtonText: {
     fontSize: 18,
     fontWeight: "600",
+    color: 'white'
   },
   linkContainer: {
     alignItems: "center",
