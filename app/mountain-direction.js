@@ -20,6 +20,114 @@ import { mountainService, planService } from "../services/api.js";
 
 const { width, height } = Dimensions.get("window");
 
+// ✅ Kakao JS SDK를 WebView 안에서 불러와서 지도/마커/경로를 그림
+function KakaoRouteWebView({ routeJson, jsKey }) {
+  // routeJson = { origin:{x,y,name?}, destination:{x,y,name?}, waypoints:[{x,y,name?}, ...] }
+
+  // WebView에 넣을 HTML 템플릿 (fitBounds + markers + polyline)
+  const html = `
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <style>
+    html, body, #map { height: 100%; margin: 0; padding: 0; }
+    .label {
+      padding: 4px 6px; background: #0A5011; color: #fff;
+      border-radius: 6px; font-size: 12px; white-space: nowrap;
+      transform: translate(-50%, -100%);
+    }
+  </style>
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&appkey=${jsKey}"></script>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    const raw = ${JSON.stringify(routeJson || {})};
+    const points = [];
+    if (raw.origin && Number.isFinite(raw.origin.x) && Number.isFinite(raw.origin.y)) {
+      points.push({lng: raw.origin.x, lat: raw.origin.y, name: raw.origin.name || "출발"});
+    }
+    if (Array.isArray(raw.waypoints)) {
+      raw.waypoints.forEach((w, i) => {
+        if (Number.isFinite(w.x) && Number.isFinite(w.y)) {
+          points.push({lng: w.x, lat: w.y, name: w.name || ("경유지 " + (i+1))});
+        }
+      });
+    }
+    if (raw.destination && Number.isFinite(raw.destination.x) && Number.isFinite(raw.destination.y)) {
+      points.push({lng: raw.destination.x, lat: raw.destination.y, name: raw.destination.name || "도착"});
+    }
+
+    function makeLabel(content) {
+      const div = document.createElement('div');
+      div.className = 'label';
+      div.innerText = content;
+      return div;
+    }
+
+    kakao.maps.load(function() {
+      var container = document.getElementById('map');
+      var center = points.length ? new kakao.maps.LatLng(points[0].lat, points[0].lng) : new kakao.maps.LatLng(37.5665, 126.9780);
+      var map = new kakao.maps.Map(container, {
+        center: center,
+        level: 7
+      });
+
+      var bounds = new kakao.maps.LatLngBounds();
+      var path = [];
+
+      points.forEach((p, idx) => {
+        var pos = new kakao.maps.LatLng(p.lat, p.lng);
+        bounds.extend(pos);
+        path.push(pos);
+
+        // 마커
+        var marker = new kakao.maps.Marker({ position: pos, map: map });
+        // 라벨(출발/경유지/도착)
+        var customOverlay = new kakao.maps.CustomOverlay({
+          position: pos, yAnchor: 1.1, content: makeLabel((idx === 0) ? "출발" : (idx === points.length - 1 ? "도착" : (p.name || "경유지")))
+        });
+        customOverlay.setMap(map);
+      });
+
+      if (path.length >= 2) {
+        var polyline = new kakao.maps.Polyline({
+          path: path, strokeWeight: 4, strokeColor: '#0A5011', strokeOpacity: 0.9, strokeStyle: 'solid'
+        });
+        polyline.setMap(map);
+      }
+
+      if (!bounds.isEmpty()) {
+        map.setBounds(bounds, 60, 40, 60, 40); // 여백: 상우하좌
+      }
+    });
+  </script>
+</body>
+</html>
+  `;
+
+  return (
+    <WebView
+      originWhitelist={["*"]}
+      // Kakao JS SDK는 '등록된 도메인'이 필요 → baseUrl을 로컬 도메인으로 맞추고
+      // Kakao Developers > JavaScript 키의 '허용 도메인'에 http://localhost 등록하세요.
+      source={{ html, baseUrl: "http://localhost:8081" }}
+      // 외부로 나가려는 네비게이션 차단
+      onShouldStartLoadWithRequest={(req) => {
+        const allowed = req.url.startsWith("http://localhost:8081");
+        return allowed;
+      }}
+      // 확대/축소 제스처, 스크롤 등 필요시 옵션 조정
+      javaScriptEnabled
+      domStorageEnabled
+      allowFileAccess
+      style={{ flex: 1 }}
+    />
+  );
+}
+
 export default function MountainDirectionScreen() {
   const router = useRouter();
   const { travelPlan, location, mountainName } = useLocalSearchParams();
@@ -980,16 +1088,32 @@ export default function MountainDirectionScreen() {
           </Text>
         </View>
 
-        {/* 지도 영역 */}
+        {/* 지도 영역 (Kakao JS SDK in WebView) */}
         <View style={styles.mapContainer}>
-          {selectedDestination &&
-          selectedDestination.mapX != null &&
-          selectedDestination.mapY != null ? (
-            <WebView
-              source={{
-                uri: `https://map.kakao.com/link/map/${selectedDestination.name},${selectedDestination.mapY},${selectedDestination.mapX}`,
-              }}
-              style={{ flex: 1 }}
+          {optimalRouteData?.data ||
+          (selectedDestination?.mapX != null &&
+            selectedDestination?.mapY != null) ? (
+            <KakaoRouteWebView
+              jsKey={process.env.EXPO_PUBLIC_KAKAO_JS_KEY}
+              routeJson={
+                // 1) 최적 경로가 있으면 그대로 사용 (서버 응답 형식 유지)
+                optimalRouteData?.data || {
+                  // 2) 아직 경로 계산 전이면, 현재위치→목적지만 표시
+                  origin: currentLocation
+                    ? {
+                        x: currentLocation.mapX,
+                        y: currentLocation.mapY,
+                        name: "현재 위치",
+                      }
+                    : null,
+                  destination: {
+                    x: selectedDestination.mapX,
+                    y: selectedDestination.mapY,
+                    name: selectedDestination.name,
+                  },
+                  waypoints: [],
+                }
+              }
             />
           ) : (
             <View
