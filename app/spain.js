@@ -1,7 +1,9 @@
 // app/MainScreen.js
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -20,6 +22,7 @@ import {
 import Line from "../assets/images/Line_1.svg";
 import apiClient, { mountainService, tourismService, weatherService } from "../services/api";
 import BottomNavBar from "./s_navigationbar";
+
 
 /** Responsive helpers */
 function useResponsive() {
@@ -256,6 +259,18 @@ function BannerCard({
 export default function MainScreen() {
   const router = useRouter();
   const R = useResponsive();
+  const [nickName, setNickName] = useState("");
+
+  const loadNickName = useCallback(async () => {
+     try {
+       const v = await AsyncStorage.getItem("nickName");
+       if (v) setNickName(v);
+     } catch {}
+   }, []);
+
+  useEffect(() => { loadNickName(); }, [loadNickName]);
+  useFocusEffect(useCallback(() => { loadNickName(); }, [loadNickName]));
+
 
   const [selectedCategory, setSelectedCategory] = useState("high");
   const interestEnum = useMemo(() => INTEREST_ENUM[selectedCategory], [selectedCategory]);
@@ -535,7 +550,7 @@ export default function MainScreen() {
         >
           <View style={styles.wrapper}>
             <Text style={[styles.greeting, { fontSize: R.f(34), marginTop: R.f(28), marginLeft: R.f(24) }]}>
-              Hi, Everyone!
+              Hi, {nickName || "Everyone"}
             </Text>
             <Text style={[styles.text2, { fontSize: R.f(18), marginLeft: R.f(24) }]}>
               what is the main purpose of hiking?
