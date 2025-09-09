@@ -45,7 +45,7 @@ export default function SettingScreen() {
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
 
   const [completedMountains, setCompletedMountains] = useState([]);
-  const [isLoadingCompleted, setIsLoadingCompleted] = useState([true]);
+  const [isLoadingCompleted, setIsLoadingCompleted] = useState(true);
 
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
@@ -269,26 +269,32 @@ export default function SettingScreen() {
                     ]}
                     onPress={() => openPlanModal(plan)}>
                     <View style={styles.planInfo}>
-                      <Text
-                        style={[styles.planName, { color: themeColors.text }]}>
-                        {plan?.mountainDTO?.name}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.planDate,
-                          { color: themeColors.text + "80" },
-                        ]}>
-                        계획일: {fmtDate(plan?.targetDate)}
-                      </Text>
-                      <View style={styles.completeButton}>
-                        <TouchableOpacity
-                          onPress={(e) => {
-                            e?.stopPropagation?.();
-                            handleCompletePlan(plan?.planId);
-                          }}>
-                          <Text style={styles.completeButtonText}>완료</Text>
-                        </TouchableOpacity>
+                      <View style={{ flexShrink: 1 }}>
+                        <Text
+                          style={[
+                            styles.planName,
+                            { color: themeColors.text },
+                          ]}>
+                          {plan?.mountainDTO?.name}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.planDate,
+                            { color: themeColors.text + "80" },
+                          ]}>
+                          계획일: {fmtDate(plan?.targetDate)}
+                        </Text>
                       </View>
+
+                      <TouchableOpacity
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        onPress={(e) => {
+                          e?.stopPropagation?.();
+                          handleCompletePlan(plan?.planId);
+                        }}
+                        style={styles.completeButton}>
+                        <Text style={styles.completeButtonText}>완료</Text>
+                      </TouchableOpacity>
                     </View>
                   </TouchableOpacity>
                 ))
@@ -666,6 +672,9 @@ const styles = StyleSheet.create({
   },
   planInfo: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   planName: {
     fontSize: 16,
@@ -826,17 +835,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   completeButton: {
-    backgroundColor: "#4CAF50",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    marginTop: 8,
-    alignSelf: "flex-start",
+    marginLeft: "auto", // ← 최우측 정렬
+    alignSelf: "center", // ← 세로 중앙
+    backgroundColor: "#0A5011",
+    paddingVertical: 12, // ← 크기 키움
+    paddingHorizontal: 18, // ← 크기 키움
+    borderRadius: 12,
   },
   completeButtonText: {
-    color: "white",
-    fontSize: 12,
-    fontWeight: "600",
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "800",
   },
 
   //프로필
