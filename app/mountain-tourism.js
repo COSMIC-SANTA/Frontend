@@ -447,13 +447,22 @@ export default function MountainTourismScreen() {
             contentContainerStyle={styles.flatListContent}
           />
 
-          {/* 여행 계획 저장 버튼 */}
+          {/* 여행 계획 액션 버튼 */}
           <View style={styles.saveButtonContainer}>
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={saveTravelPlan}>
-              <Text style={styles.saveButtonText}>🗺️ 여행 계획 저장하기</Text>
-            </TouchableOpacity>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={() => router.back()}>
+                <Text style={styles.secondaryButtonText}>
+                  ⏳ 나중에 계획할래요
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={saveTravelPlan}>
+                <Text style={styles.saveButtonText}>🗺️ 여행 계획 저장하기</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </>
       )}
@@ -685,7 +694,12 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
+  buttonRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
   saveButton: {
+    flex: 1,
     backgroundColor: "#0A5011",
     paddingVertical: 15,
     borderRadius: 12,
@@ -693,6 +707,20 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  secondaryButton: {
+    flex: 1,
+    backgroundColor: "white",
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#0A5011",
+  },
+  secondaryButtonText: {
+    color: "#0A5011",
     fontSize: 16,
     fontWeight: "bold",
   },
