@@ -14,13 +14,15 @@
         "googleMapsApiKey": "AIzaSyCkHNadWU5CB1XCgXxLTxJcoBzlwFvAr7k"
       },
       "bundleIdentifier": "com.anonymous.santaapp",
-      "NSAppTransportSecurity": {
-        "NSAllowsArbitraryLoads": true,
-        "NSExceptionDomains": {
-          "localhost": {
-            "NSExceptionAllowsInsecureHTTPLoads": true,
-            "NSExceptionMinimumTLSVersion": "1.0",
-            "NSExceptionRequiresForwardSecrecy": false
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSExceptionDomains": {
+            "localhost": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSExceptionMinimumTLSVersion": "1.0",
+              "NSExceptionRequiresForwardSecrecy": false
+            }
           }
         }
       }
@@ -36,8 +38,6 @@
           "apiKey": "AIzaSyCkHNadWU5CB1XCgXxLTxJcoBzlwFvAr7k"
         }
       },
-      "usesCleartextTraffic": true,
-      "networkSecurityConfig": "./assets/network_security_config.xml",
       "package": "com.santaapp"
     },
     "web": {
@@ -47,6 +47,10 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-build-properties",
+        { "android": { "usesCleartextTraffic": true } }
+      ],
       [
         "expo-splash-screen",
         {
@@ -59,6 +63,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8ca62dda-d9f2-4088-b606-8cd116119c48"
+      }
     }
   }
 }

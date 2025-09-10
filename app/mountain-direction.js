@@ -116,9 +116,19 @@ function KakaoRouteWebView({ routeJson, jsKey }) {
       source={{ html, baseUrl: "http://localhost:8081" }}
       // 외부로 나가려는 네비게이션 차단
       onShouldStartLoadWithRequest={(req) => {
-        const allowed = req.url.startsWith("http://localhost:8081");
-        return allowed;
+        const url = req.url || "";
+        if (
+          url.startsWith("about:blank") ||
+          url.startsWith("data:") ||
+          url.startsWith("http://localhost:8081") ||
+          url.startsWith("https://dapi.kakao.com") ||
+          url.startsWith("http://localhost:19006") ||
+          url.startsWith("http://localhost:8080")
+        )
+          return true;
+        return false;
       }}
+      mixedContentMode="always"
       // 확대/축소 제스처, 스크롤 등 필요시 옵션 조정
       javaScriptEnabled
       domStorageEnabled
