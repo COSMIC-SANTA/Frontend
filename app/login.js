@@ -11,7 +11,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { loginService } from "../services/api.js";
 
@@ -21,7 +21,6 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const colorScheme = useColorScheme();
-
 
   // 입력값 검증
   const validateInputs = () => {
@@ -38,7 +37,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     console.log("=== 로그인 시작 ===");
-    
+
     if (!validateInputs()) {
       return;
     }
@@ -47,7 +46,7 @@ export default function LoginScreen() {
 
     try {
       const result = await loginService.login(username, password);
-      
+
       console.log("=== 로그인 결과 ===");
       console.log("메시지:", result);
 
@@ -63,11 +62,11 @@ export default function LoginScreen() {
       }
     } catch (error) {
       console.log("예상치 못한 에러:", error);
-      Alert.alert("오류", "네트워크 오류가 발생했습니다.");
+      Alert.alert("오류", error);
     } finally {
       setIsLoading(false);
       console.log("=== 로그인 종료 ===");
-    };
+    }
   };
 
   const themeColors = Colors[colorScheme ?? "light"];
@@ -75,13 +74,8 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <View
-        style={[
-          styles.loginContainer,
-        ]}
-      >
+      behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <View style={[styles.loginContainer]}>
         <Text style={[styles.title, { color: themeColors.text }]}>로그인</Text>
 
         <View style={styles.inputContainer}>
@@ -134,13 +128,12 @@ export default function LoginScreen() {
             styles.loginButton,
             {
               backgroundColor: isLoading
-                ? ('#325A2A' || "#325A2A") + "80"
-                : '#325A2A' || "#325A2A",
+                ? ("#325A2A" || "#325A2A") + "80"
+                : "#325A2A" || "#325A2A",
             },
           ]}
           onPress={handleLogin}
-          disabled={isLoading}
-        >
+          disabled={isLoading}>
           {isLoading ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
@@ -150,12 +143,7 @@ export default function LoginScreen() {
 
         <View style={styles.linkContainer}>
           <TouchableOpacity onPress={() => router.push("/signup")}>
-            <Text
-              style={[
-                styles.linkText,
-                { color: 'green' || "#007AFF" },
-              ]}
-            >
+            <Text style={[styles.linkText, { color: "green" || "#007AFF" }]}>
               계정이 없으신가요? 회원가입
             </Text>
           </TouchableOpacity>
@@ -170,10 +158,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: '#325A2A'
+    backgroundColor: "#325A2A",
   },
   loginContainer: {
-    backgroundColor: '#FFF9E5',
+    backgroundColor: "#FFF9E5",
     width: "90%",
     maxWidth: 400,
     padding: 20,
@@ -219,7 +207,7 @@ const styles = StyleSheet.create({
   loginButtonText: {
     fontSize: 18,
     fontWeight: "600",
-    color: 'white'
+    color: "white",
   },
   linkContainer: {
     alignItems: "center",

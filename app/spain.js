@@ -629,11 +629,6 @@ export default function MainScreen() {
               mountain
             </Text>
           </View>
-          <View style={styles.rightContainer}>
-            <TouchableOpacity style={styles.settingsButton}>
-              <Ionicons name="settings-outline" size={R.f(28)} color="black" />
-            </TouchableOpacity>
-          </View>
         </View>
         {/* 사람 이미지 */}
         <Image

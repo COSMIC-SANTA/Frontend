@@ -1,6 +1,5 @@
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
-import axios from "axios";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -16,7 +15,12 @@ import {
 } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { WebView } from "react-native-webview";
-import { mountainService, planService } from "../services/api.js";
+import {
+  API_BASE_URL,
+  apiJson,
+  mountainService,
+  planService,
+} from "../services/api.js";
 
 const { width, height } = Dimensions.get("window");
 
@@ -113,22 +117,24 @@ function KakaoRouteWebView({ routeJson, jsKey }) {
       originWhitelist={["*"]}
       // Kakao JS SDK는 '등록된 도메인'이 필요 → baseUrl을 로컬 도메인으로 맞추고
       // Kakao Developers > JavaScript 키의 '허용 도메인'에 http://localhost 등록하세요.
-      source={{ html, baseUrl: "http://localhost:8081" }}
+      source={{ html, baseUrl: API_BASE_URL }}
       // 외부로 나가려는 네비게이션 차단
       onShouldStartLoadWithRequest={(req) => {
         const url = req.url || "";
-        if (
-          url.startsWith("about:blank") ||
-          url.startsWith("data:") ||
-          url.startsWith("http://localhost:8081") ||
-          url.startsWith("https://dapi.kakao.com") ||
-          url.startsWith("http://localhost:19006") ||
-          url.startsWith("http://localhost:8080")
-        )
-          return true;
-        return false;
+        // 허용 origin 구성
+        const allowed = [
+          "about:blank",
+          "data:",
+          "https://dapi.kakao.com",
+          API_BASE_URL, // 앱 공식 도메인
+        ];
+        // 개발 중에만 로컬/Expo Dev 서버 허용
+        if (__DEV__) {
+          allowed.push("http://localhost:8081", "http://localhost:19006");
+        }
+        return allowed.some((p) => url.startsWith(p));
       }}
-      mixedContentMode="always"
+      mixedContentMode="never"
       // 확대/축소 제스처, 스크롤 등 필요시 옵션 조정
       javaScriptEnabled
       domStorageEnabled
@@ -785,32 +791,15 @@ export default function MountainDirectionScreen() {
       return;
     }
 
-    const apiClientJson = axios.create({
-      baseURL: "http://api-santa.com",
-      timeout: 10000,
-      headers: { "Content-Type": "application/json" },
-    });
-
     try {
       setLoading(true);
-      const response = await apiClientJson.post(
+      // apiJson 응답은 인터셉터로 { message, data } 정규화됨
+      const { data } = await apiJson.post(
         "/api/mountains/optimalRoute",
         routeData
       );
-      const result = {
-        success: true,
-        data: response,
-        message: "최적 경로를 성공적으로 계산했습니다.",
-      };
-      console.log("찐 응답", result);
-
-      if (result.success) {
-        setOptimalRouteData(result.data);
-        console.log("최적 경로 응답:", result.data);
-      } else {
-        console.error("최적 경로 계산 실패:", result.error);
-        Alert.alert("오류", result.error || "최적 경로 계산에 실패했습니다.");
-      }
+      setOptimalRouteData({ data });
+      console.log("최적 경로 응답:", data);
     } catch (error) {
       console.error("최적 경로 요청 중 오류:", error);
       Alert.alert("오류", "최적 경로 요청 중 문제가 발생했습니다.");

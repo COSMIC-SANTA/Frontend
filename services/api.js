@@ -87,7 +87,7 @@ const clearAllAuthData = async (reason = "로그아웃") => {
  * ───────────────────────────────────────────── */
 // fallback을 두면 EAS env 없이도 동작
 const API_BASE_URL = (
-  process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://api-santa.com"
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://api-santa.com"
 ).replace(/\/+$/, "");
 
 /* ─────────────────────────────────────────────
