@@ -1,6 +1,6 @@
 // services/api.js
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 
 /* ─────────────────────────────────────────────
  *  작은 유틸: sleep / withRetry (네트워크·5xx만 재시도)
@@ -8,15 +8,18 @@ import axios from 'axios';
  * ───────────────────────────────────────────── */
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function withRetry(fn, {
-  tries = 3,
-  backoffMs = 300,
-  isRetryable = (err) => {
-    const s = err?.response?.status;
-    // 네트워크 오류 또는 5xx만 재시도
-    return !s || (s >= 500 && s < 600);
-  },
-} = {}) {
+async function withRetry(
+  fn,
+  {
+    tries = 3,
+    backoffMs = 300,
+    isRetryable = (err) => {
+      const s = err?.response?.status;
+      // 네트워크 오류 또는 5xx만 재시도
+      return !s || (s >= 500 && s < 600);
+    },
+  } = {}
+) {
   let lastErr;
   for (let i = 0; i < tries; i++) {
     try {
@@ -37,9 +40,10 @@ async function withRetry(fn, {
  * ───────────────────────────────────────────── */
 const cookieHelpers = {
   removeCookie: (name) => {
-    if (typeof document !== 'undefined' && document?.cookie !== undefined) {
+    if (typeof document !== "undefined" && document?.cookie !== undefined) {
       try {
-        const host = typeof window !== 'undefined' ? window.location.hostname : '';
+        const host =
+          typeof window !== "undefined" ? window.location.hostname : "";
         const patterns = [
           `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`,
           `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${host}`,
@@ -54,7 +58,7 @@ const cookieHelpers = {
     }
   },
   setCookie: (name, value) => {
-    if (typeof document !== 'undefined' && document?.cookie !== undefined) {
+    if (typeof document !== "undefined" && document?.cookie !== undefined) {
       try {
         document.cookie = `${name}=${value}; path=/; secure; samesite=strict`;
         console.log(`[cookie] '${name}' 설정 완료`);
@@ -68,21 +72,23 @@ const cookieHelpers = {
 /* ─────────────────────────────────────────────
  *  인증 데이터 정리
  * ───────────────────────────────────────────── */
-const clearAllAuthData = async (reason = '로그아웃') => {
+const clearAllAuthData = async (reason = "로그아웃") => {
   try {
-    await AsyncStorage.removeItem('authToken');
-    cookieHelpers.removeCookie('accessToken');
+    await AsyncStorage.removeItem("authToken");
+    cookieHelpers.removeCookie("accessToken");
     console.log(`[auth] ${reason} → 토큰/쿠키 삭제 완료`);
   } catch (e) {
-    console.error('[auth] 인증 데이터 삭제 실패:', e);
+    console.error("[auth] 인증 데이터 삭제 실패:", e);
   }
 };
 
 /* ─────────────────────────────────────────────
  *  API 베이스 URL
  * ───────────────────────────────────────────── */
-const getApiUrl = () => 'http://api-santa.com';
-const API_BASE_URL = getApiUrl();
+// fallback을 두면 EAS env 없이도 동작
+const API_BASE_URL = (
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://api-santa.com"
+).replace(/\/+$/, "");
 
 /* ─────────────────────────────────────────────
  *  Axios 인스턴스 2종
@@ -97,7 +103,7 @@ const api = axios.create({
 const apiJson = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { "Content-Type": "application/json" },
 });
 
 /* ─────────────────────────────────────────────
@@ -109,13 +115,21 @@ const attachAuthInterceptor = (instance, tag) => {
     async (config) => {
       try {
         if (!config.skipAuth) {
-          const token = await AsyncStorage.getItem('authToken');
+          const token = await AsyncStorage.getItem("authToken");
           if (token) {
             config.headers = config.headers || {};
             config.headers.Authorization = `Bearer ${token}`;
-            console.log(`[${tag} req] Auth ok → ${config.method?.toUpperCase()} ${config.url}`);
+            console.log(
+              `[${tag} req] Auth ok → ${config.method?.toUpperCase()} ${
+                config.url
+              }`
+            );
           } else {
-            console.log(`[${tag} req] No token → ${config.method?.toUpperCase()} ${config.url}`);
+            console.log(
+              `[${tag} req] No token → ${config.method?.toUpperCase()} ${
+                config.url
+              }`
+            );
           }
         }
       } catch (e) {
@@ -126,8 +140,8 @@ const attachAuthInterceptor = (instance, tag) => {
     (error) => Promise.reject(error)
   );
 };
-attachAuthInterceptor(api, 'api');
-attachAuthInterceptor(apiJson, 'apiJson');
+attachAuthInterceptor(api, "api");
+attachAuthInterceptor(apiJson, "apiJson");
 
 /* ─────────────────────────────────────────────
  *  공통 응답 인터셉터(정규화 + 401/400 인증정리)
@@ -136,7 +150,7 @@ attachAuthInterceptor(apiJson, 'apiJson');
 const normalizeResponse = (res) => {
   const d = res?.data;
   return {
-    message: d && typeof d === 'object' ? d.message ?? null : null,
+    message: d && typeof d === "object" ? d.message ?? null : null,
     data: d?.data ?? d ?? null,
   };
 };
@@ -148,26 +162,30 @@ const attachResponseInterceptor = (instance, tag) => {
       return norm;
     },
     async (err) => {
-      const status = err.response?.status || 'Network';
+      const status = err.response?.status || "Network";
       const method = err.config?.method?.toUpperCase();
       const url = err.config?.url;
       console.log(`[${tag} err] ${status} ${method} ${url}`);
       console.log(`[${tag} err] body:`, err.response?.data || err.message);
 
       if (err.response?.status === 401) {
-        await clearAllAuthData('인증 만료');
+        await clearAllAuthData("인증 만료");
       } else if (err.response?.status === 400) {
-        const msg = err.response?.data?.message || '';
-        if (msg.includes('토큰') || msg.includes('인증') || msg.includes('로그인')) {
-          await clearAllAuthData('인증 오류');
+        const msg = err.response?.data?.message || "";
+        if (
+          msg.includes("토큰") ||
+          msg.includes("인증") ||
+          msg.includes("로그인")
+        ) {
+          await clearAllAuthData("인증 오류");
         }
       }
       return Promise.reject(err);
     }
   );
 };
-attachResponseInterceptor(api, 'api');
-attachResponseInterceptor(apiJson, 'apiJson');
+attachResponseInterceptor(api, "api");
+attachResponseInterceptor(apiJson, "apiJson");
 
 /* ─────────────────────────────────────────────
  *  서비스 레이어
@@ -178,16 +196,16 @@ export const mountainService = {
   fetchByInterest: async (interest, { signal } = {}) => {
     const { data: payload } = await withRetry(
       () =>
-        api.get('/api/main/banner', {
-          params: { type: 'interest', interest },
+        api.get("/api/main/banner", {
+          params: { type: "interest", interest },
           signal,
         }),
       { tries: 3, backoffMs: 300 }
     );
     const list = Array.isArray(payload) ? payload : payload?.mountains ?? [];
     return list.map((m) => ({
-      id: String(m.id ?? m.mountainId ?? ''),
-      name: m.name ?? m.mountainName ?? '',
+      id: String(m.id ?? m.mountainId ?? ""),
+      name: m.name ?? m.mountainName ?? "",
       image: m.image_url ?? m.imageUrl ?? null,
       activity: m.difficulty ?? null,
     }));
@@ -196,18 +214,15 @@ export const mountainService = {
   // (참고용, 현재 미사용) - 서버가 @RequestParam을 요구하면 form 또는 params로 바꿔야 함
   fetchDetailByName: async (mountainName, { signal } = {}) => {
     const body = new URLSearchParams({ mountainName }).toString();
-    const res = await api.post(
-      '/api/main/banner/click',
-      body,
-      { signal, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-    );
+    const res = await api.post("/api/main/banner/click", body, {
+      signal,
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
     return res.data;
   },
 
-    fetchMountainXY: async (mountainName, { signal } = {}) => {
-
+  fetchMountainXY: async (mountainName, { signal } = {}) => {
     try {
-
       const name = (mountainName ?? "").toString().trim();
 
       if (!name) {
@@ -220,7 +235,7 @@ export const mountainService = {
         signal,
       });
 
-      console.log("응답"+response);
+      console.log("응답" + response);
 
       // apiClient 인터셉터 때문에 response는 이미 res.data
 
@@ -230,23 +245,22 @@ export const mountainService = {
       console.error("[fetchMountainXY] 에러:", err);
       throw err;
     }
-
   },
 };
 
 // 2) 날씨
 export const weatherService = {
   searchMountainsByName: async (mountainName, { signal } = {}) => {
-    const { data: payload } = await api.get('/api/mountains/search', {
+    const { data: payload } = await api.get("/api/mountains/search", {
       params: { mountainName },
       signal,
     });
     const list = Array.isArray(payload) ? payload : payload?.mountains ?? [];
     return list.map((m) => ({
-      mountainName: String(m.mountainName ?? ''),
-      mountainAddress: String(m.mountainAddress ?? ''),
-      mapX: m.mapX ?? '',
-      mapY: m.mapY ?? '',
+      mountainName: String(m.mountainName ?? ""),
+      mountainAddress: String(m.mountainAddress ?? ""),
+      mapX: m.mapX ?? "",
+      mapY: m.mapY ?? "",
     }));
   },
 
@@ -259,9 +273,9 @@ export const weatherService = {
     const { data: rowsRaw } = await withRetry(
       () =>
         api.post(
-          '/api/main/weather',
+          "/api/main/weather",
           { mapX: x, mapY: y },
-          { signal, headers: { 'Content-Type': 'application/json' } }
+          { signal, headers: { "Content-Type": "application/json" } }
         ),
       { tries: 3, backoffMs: 300 }
     );
@@ -269,23 +283,22 @@ export const weatherService = {
     const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
     if (rows.length === 0) return null;
 
-    const nowHH = `${String(new Date().getHours()).padStart(2, '0')}:00`;
+    const nowHH = `${String(new Date().getHours()).padStart(2, "0")}:00`;
     const cur = rows.find((r) => r?.time === nowHH) || rows[0];
 
     const normalizeCode = (code, gloomy) => {
-      if (code === 'RAIN') return 'RAIN';
-      if (code === 'NO_RAIN') return gloomy === 'NO_CLOUD' ? 'CLEAR' : 'CLOUDY';
+      if (code === "RAIN") return "RAIN";
+      if (code === "NO_RAIN") return gloomy === "NO_CLOUD" ? "CLEAR" : "CLOUDY";
       return code || null;
-      };
+    };
     return {
       time: cur?.time ?? null,
-      temperature: typeof cur?.temperature === 'number' ? cur.temperature : null,
+      temperature:
+        typeof cur?.temperature === "number" ? cur.temperature : null,
       weatherCode: normalizeCode(cur?.weatherCode, cur?.gloomyLevel),
       gloomyLevel: cur?.gloomyLevel ?? null,
     };
   },
-
-  
 };
 
 // 3) 주변 편의시설
@@ -304,8 +317,8 @@ export const facilityService = {
 
     const normalize = (arr = []) =>
       arr.map((it) => ({
-        place_name: String(it?.placeName ?? ''),
-        address_name: String(it?.addressName ?? ''),
+        place_name: String(it?.placeName ?? ""),
+        address_name: String(it?.addressName ?? ""),
         location_x: Number(it?.mapX ?? NaN),
         location_y: Number(it?.mapY ?? NaN),
         distance: Number(it?.distance ?? 0),
@@ -315,9 +328,9 @@ export const facilityService = {
       const { data: payload } = await withRetry(
         () =>
           api.post(
-            '/api/mountains/facilities',
+            "/api/mountains/facilities",
             { mapX: xNum, mapY: yNum },
-            { signal, headers: { 'Content-Type': 'application/json' } }
+            { signal, headers: { "Content-Type": "application/json" } }
           ),
         { tries: 2, backoffMs: 300 }
       );
@@ -335,9 +348,9 @@ export const facilityService = {
 
       const { data: payload } = await withRetry(
         () =>
-          api.post('/api/mountains/facilities', body, {
+          api.post("/api/mountains/facilities", body, {
             signal,
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
           }),
         { tries: 2, backoffMs: 300 }
       );
@@ -354,33 +367,56 @@ export const facilityService = {
 // 4) 로그인/로그아웃 (토큰 저장/삭제)
 export const loginService = {
   login: async (username, password) => {
-    await clearAllAuthData('새 로그인 시도');
+    await clearAllAuthData("새 로그인 시도");
 
     const requestData = {
-      username: String(username ?? '').trim(),
-      password: String(password ?? '').trim(),
+      username: String(username ?? "").trim(),
+      password: String(password ?? "").trim(),
     };
 
     // 공개 엔드포인트 → skipAuth로 Authorization 생략
-    const { data } = await apiJson.post('/api/auth/login', requestData, {
+    const { data } = await apiJson.post("/api/auth/login", requestData, {
       skipAuth: true,
     });
 
     const token = data?.accessToken ?? null;
     const nickname = data?.nickname ?? null;
     if (token) {
-      await AsyncStorage.setItem('authToken', token);
-      await AsyncStorage.setItem('nickName', nickname);
+      await AsyncStorage.setItem("authToken", token);
+      await AsyncStorage.setItem("nickName", nickname);
 
-      cookieHelpers.setCookie('accessToken', token);
-      return { success: true, accessToken: token, message: `Hello, ${nickname}!` ?? null };
+      cookieHelpers.setCookie("accessToken", token);
+      return {
+        success: true,
+        accessToken: token,
+        message: `Hello, ${nickname}!` ?? null,
+      };
     }
-    return { success: false, accessToken: null, message: '토큰이 응답에 없습니다.' };
+    return {
+      success: false,
+      accessToken: null,
+      message: "토큰이 응답에 없습니다.",
+    };
   },
 
   logout: async () => {
-    await clearAllAuthData('수동 로그아웃');
-    return { success: true, message: '로그아웃되었습니다.' };
+    await clearAllAuthData("수동 로그아웃");
+    return { success: true, message: "로그아웃되었습니다." };
+  },
+};
+
+export const signupService = {
+  signUp: async ({ username, password, nickname, age }) => {
+    const payload = {
+      username: String(username ?? "").trim(),
+      password: String(password ?? "").trim(),
+      nickname: String(nickname ?? "").trim(),
+      age: Number.parseInt(age, 10),
+    };
+    const { data, message } = await apiJson.post("/api/auth/sign-up", payload, {
+      skipAuth: true,
+    });
+    return { data, message };
   },
 };
 
@@ -388,80 +424,94 @@ export const loginService = {
 export const planService = {
   savePlan: async (plan) => {
     try {
-      const { data } = await apiJson.post('/api/plan', plan);
-      return { success: true, data, message: '여행 계획 저장 완료' };
+      const { data } = await apiJson.post("/api/plan", plan);
+      return { success: true, data, message: "여행 계획 저장 완료" };
     } catch (error) {
       if (error.response) {
         return {
           success: false,
-          error: error.response.data?.message || '서버 오류가 발생했습니다.',
+          error: error.response.data?.message || "서버 오류가 발생했습니다.",
           status: error.response.status,
         };
       }
       if (error.request) {
-        return { success: false, error: '서버에 연결할 수 없습니다.' };
+        return { success: false, error: "서버에 연결할 수 없습니다." };
       }
-      return { success: false, error: '요청 처리 중 오류' };
+      return { success: false, error: "요청 처리 중 오류" };
     }
   },
 
   loadPlan: async () => {
     try {
-      const { data, message } = await api.get('/api/plan');
+      const { data, message } = await api.get("/api/plan");
       return { success: true, message, data };
     } catch (error) {
       if (error.response) {
         return {
           success: false,
-          error: error.response.data?.message || '계획 조회 중 서버 오류',
+          error: error.response.data?.message || "계획 조회 중 서버 오류",
           status: error.response.status,
           data: [],
         };
       }
       if (error.request) {
-        return { success: false, error: '서버에 연결할 수 없습니다.', data: [] };
+        return {
+          success: false,
+          error: "서버에 연결할 수 없습니다.",
+          data: [],
+        };
       }
-      return { success: false, error: '계획 조회 처리 중 오류', data: [] };
+      return { success: false, error: "계획 조회 처리 중 오류", data: [] };
     }
   },
 
   completePlan: async (completedPlanId) => {
     try {
-      const { data } = await apiJson.post('/api/plan/complete', { planId: completedPlanId });
-      return { success: true, data, message: '계획 완료 처리 성공' };
+      const { data } = await apiJson.post("/api/plan/complete", {
+        planId: completedPlanId,
+      });
+      return { success: true, data, message: "계획 완료 처리 성공" };
     } catch (error) {
       if (error.response) {
         return {
           success: false,
-          error: error.response.data?.message || '계획 완료 처리 실패',
+          error: error.response.data?.message || "계획 완료 처리 실패",
           status: error.response.status,
           data: [],
         };
       }
       if (error.request) {
-        return { success: false, error: '서버에 연결할 수 없습니다.', data: [] };
+        return {
+          success: false,
+          error: "서버에 연결할 수 없습니다.",
+          data: [],
+        };
       }
-      return { success: false, error: '요청 처리 중 오류', data: [] };
+      return { success: false, error: "요청 처리 중 오류", data: [] };
     }
   },
 
   loadCompletedPlan: async () => {
     try {
-      const { data, message } = await api.get('/api/plan/complete');
+      const { data, message } = await api.get("/api/plan/complete");
       return { success: true, message, data };
     } catch (error) {
       if (error.response) {
         return {
           success: false,
-          error: error.response.data?.message || '계획 조회 중 서버 오류',
+          error: error.response.data?.message || "계획 조회 중 서버 오류",
           status: error.response.status,
           data: [],
         };
       }
       if (error.request) {
-        return { success: false, error: '서버에 연결할 수 없습니다.', data: [] };
+        return {
+          success: false,
+          error: "서버에 연결할 수 없습니다.",
+          data: [],
+        };
       }
-      return { success: false, error: '계획 조회 처리 중 오류', data: [] };
+      return { success: false, error: "계획 조회 처리 중 오류", data: [] };
     }
   },
 };
@@ -469,63 +519,72 @@ export const planService = {
 // 6) 검색(로컬 히스토리 포함)
 export const searchService = {
   searchMountain: async (searchQuery, { signal } = {}) => {
-    const query = (searchQuery ?? '').toString().trim();
+    const query = (searchQuery ?? "").toString().trim();
     if (!query) {
-      return { success: false, error: '검색어를 입력해주세요.', data: [] };
+      return { success: false, error: "검색어를 입력해주세요.", data: [] };
     }
     try {
-      const { data: payload } = await api.get('/api/mountains/search', {
+      const { data: payload } = await api.get("/api/mountains/search", {
         params: { mountainName: query },
         signal,
       });
       const list = Array.isArray(payload) ? payload : payload?.mountains ?? [];
-      return { success: true, data: list, message: `"${query}" 검색 완료`, searchQuery: query };
+      return {
+        success: true,
+        data: list,
+        message: `"${query}" 검색 완료`,
+        searchQuery: query,
+      };
     } catch (error) {
       if (error.response) {
         return {
           success: false,
-          error: error.response.data?.message || '검색 중 서버 오류',
+          error: error.response.data?.message || "검색 중 서버 오류",
           status: error.response.status,
           data: [],
         };
       }
       if (error.request) {
-        return { success: false, error: '서버에 연결할 수 없습니다.', data: [] };
+        return {
+          success: false,
+          error: "서버에 연결할 수 없습니다.",
+          data: [],
+        };
       }
-      return { success: false, error: '검색 요청 처리 중 오류', data: [] };
+      return { success: false, error: "검색 요청 처리 중 오류", data: [] };
     }
   },
 
   saveSearchHistory: async (searchQuery) => {
     try {
-      const query = (searchQuery ?? '').toString().trim();
+      const query = (searchQuery ?? "").toString().trim();
       if (!query) return;
-      const existing = await AsyncStorage.getItem('searchHistory');
+      const existing = await AsyncStorage.getItem("searchHistory");
       let history = existing ? JSON.parse(existing) : [];
       history = history.filter((q) => q !== query);
       history.unshift(query);
       if (history.length > 10) history = history.slice(0, 10);
-      await AsyncStorage.setItem('searchHistory', JSON.stringify(history));
+      await AsyncStorage.setItem("searchHistory", JSON.stringify(history));
     } catch (e) {
-      console.error('[searchHistory] 저장 실패:', e);
+      console.error("[searchHistory] 저장 실패:", e);
     }
   },
 
   getSearchHistory: async () => {
     try {
-      const existing = await AsyncStorage.getItem('searchHistory');
+      const existing = await AsyncStorage.getItem("searchHistory");
       return existing ? JSON.parse(existing) : [];
     } catch (e) {
-      console.error('[searchHistory] 조회 실패:', e);
+      console.error("[searchHistory] 조회 실패:", e);
       return [];
     }
   },
 
   clearSearchHistory: async () => {
     try {
-      await AsyncStorage.removeItem('searchHistory');
+      await AsyncStorage.removeItem("searchHistory");
     } catch (e) {
-      console.error('[searchHistory] 삭제 실패:', e);
+      console.error("[searchHistory] 삭제 실패:", e);
     }
   },
 };
@@ -534,20 +593,20 @@ export const searchService = {
 export const tourismService = {
   saveMountainsFromApi: async () => {
     try {
-      const { data } = await api.get('/api/main/saveMountainsFromApi');
-      return { success: true, message: '산 데이터 저장 성공', data };
+      const { data } = await api.get("/api/main/saveMountainsFromApi");
+      return { success: true, message: "산 데이터 저장 성공", data };
     } catch (error) {
       if (error.response) {
         return {
           success: false,
-          error: error.response.data?.message || '산 데이터 저장 실패',
+          error: error.response.data?.message || "산 데이터 저장 실패",
           status: error.response.status,
         };
       }
       if (error.request) {
-        return { success: false, error: '서버에 연결할 수 없습니다.' };
+        return { success: false, error: "서버에 연결할 수 없습니다." };
       }
-      return { success: false, error: '요청 처리 중 오류' };
+      return { success: false, error: "요청 처리 중 오류" };
     }
   },
 
@@ -557,26 +616,20 @@ export const tourismService = {
   clickBanner: async (mountainName) => {
     try {
       const body = new URLSearchParams({ mountainName }).toString();
-      const { data } = await api.post(
-        '/api/main/banner/click',
-        body,
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-      );
+      const { data } = await api.post("/api/main/banner/click", body, {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
       return data; // payload 그대로
     } catch (error) {
       if (error?.response?.status === 400) {
         // 폴백: 쿼리 파라미터 방식
-        const { data } = await api.post(
-          '/api/main/banner/click',
-          null,
-          { params: { mountainName } }
-        );
+        const { data } = await api.post("/api/main/banner/click", null, {
+          params: { mountainName },
+        });
         return data;
       }
       const msg =
-        error?.response?.data?.message ||
-        error?.message ||
-        '배너 클릭 실패';
+        error?.response?.data?.message || error?.message || "배너 클릭 실패";
       throw new Error(msg);
     }
   },
@@ -596,33 +649,36 @@ export const tourismService = {
     } catch (error) {
       if (error.response) {
         return {
-          error: error.response.data?.message || '관광지 정보 로드 실패',
+          error: error.response.data?.message || "관광지 정보 로드 실패",
           status: error.response.status,
         };
       }
       if (error.request) {
-        return { error: '서버에 연결할 수 없습니다.' };
+        return { error: "서버에 연결할 수 없습니다." };
       }
-      return { error: '요청 처리 중 오류' };
+      return { error: "요청 처리 중 오류" };
     }
   },
 
   getOptimalRoute: async (routeData) => {
     try {
-      const { data } = await apiJson.post('/api/mountains/optimalRoute', routeData);
-      return { success: true, data, message: '최적 경로 계산 성공' };
+      const { data } = await apiJson.post(
+        "/api/mountains/optimalRoute",
+        routeData
+      );
+      return { success: true, data, message: "최적 경로 계산 성공" };
     } catch (error) {
       if (error.response) {
         return {
           success: false,
-          error: error.response.data?.message || '최적 경로 계산 실패',
+          error: error.response.data?.message || "최적 경로 계산 실패",
           status: error.response.status,
         };
       }
       if (error.request) {
-        return { success: false, error: '서버에 연결할 수 없습니다.' };
+        return { success: false, error: "서버에 연결할 수 없습니다." };
       }
-      return { success: false, error: '요청 처리 중 오류' };
+      return { success: false, error: "요청 처리 중 오류" };
     }
   },
 };
